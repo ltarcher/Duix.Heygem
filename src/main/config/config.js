@@ -6,10 +6,10 @@ const isWin = process.platform === 'win32'
 
 export const serviceUrl = {
   face2face: isDev 
-    ? `http://${process.env.FACE2FACE_DEV_IP || '192.168.4.204'}:8383/easy`
+    ? `http://${process.env.FACE2FACE_DEV_IP || '200.200.167.104'}:8383/easy`
     : `http://${process.env.FACE2FACE_PROD_IP || '127.0.0.1'}:8383/easy`,
   tts: isDev
-    ? `http://${process.env.TTS_DEV_IP || '192.168.4.204'}:18180`
+    ? `http://${process.env.TTS_DEV_IP || '200.200.167.104'}:18180`
     : `http://${process.env.TTS_PROD_IP || '127.0.0.1'}:18180`
 }
 
