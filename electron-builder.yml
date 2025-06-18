@@ -56,7 +56,7 @@ linux:
       - 视频生成
 appImage:
   artifactName: ${productName}-${version}.${ext}
-npmRebuild: false
+npmRebuild: true
 publish:
   provider: generic
   url: https://example.com/auto-updates
