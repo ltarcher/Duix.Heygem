@@ -9,7 +9,7 @@ export const remoteStorageConfig = {
   enabled: false, // 是否启用远程存储
   type: 'minio',  // 存储类型: minio/s3/oss
   endpoint: 'http://localhost:9000', // Minio服务器地址
-  region: 'us-east-1', // 存储区域
+  region: 'us-east-1', // 存储区域 (Minio不强制要求，但SDK需要)
   bucket: 'heygemdata', // 存储桶名称
   accessKey: 'myminio', // 访问密钥
   secretKey: 'myminio' // 秘密密钥
