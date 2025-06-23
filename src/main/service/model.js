@@ -16,10 +16,9 @@ const MODEL_NAME = 'model'
  * 新增模特
  * @param {string} modelName 模特名称
  * @param {string} videoPath 模特视频路径
- * @param {boolean} useRemoteStorage 是否使用远程存储
  * @returns
  */
-function addModel(modelName, videoPath, useRemoteStorage = false) {
+function addModel(modelName, videoPath) {
   // 生成文件名
   const extname = path.extname(videoPath)
   const modelFileName = dayjs().format('YYYYMMDDHHmmssSSS') + extname
@@ -27,7 +26,7 @@ function addModel(modelName, videoPath, useRemoteStorage = false) {
   let audioPath = ''
   
   // 如果不是远程存储模式，则需要处理本地文件
-  if (!(useRemoteStorage && remoteStorageConfig.enabled)) {
+  if (!remoteStorageConfig.enabled) {
     // 确保本地目录存在
     try {
       if (!fs.existsSync(assetPath.model)) {
@@ -61,7 +60,7 @@ function addModel(modelName, videoPath, useRemoteStorage = false) {
     let remoteAudioPath = '';
     let isRemote = false;
     
-    if (useRemoteStorage && remoteStorageConfig.enabled) {
+    if (remoteStorageConfig.enabled) {
       try {
         // 上传视频文件
         const videoKey = `${modelFileName}`;
