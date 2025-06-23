@@ -17,12 +17,35 @@ export function getAllTimbre() {
 }
 
 export async function train(path, lang = 'zh') {
-  path = path.replace(/\\/g, '/') // 将路径中的\替换为/
+  let audioPath = path;
+  let isTempFile = false;
+  
+  // 如果是远程URL，先下载到临时目录
+  if (path.startsWith('http') || path.startsWith('https')) {
+    try {
+      const fileName = path.split('/').pop();
+      const tmpPath = path.join(os.tmpdir(), fileName);
+      await remoteStorage.downloadFile(path, tmpPath);
+      audioPath = tmpPath;
+      isTempFile = true;
+    } catch (error) {
+      log.error('Failed to download remote audio file:', error);
+      throw new Error('Failed to download remote audio file');
+    }
+  }
+
+  audioPath = audioPath.replace(/\\/g, '/'); // 将路径中的\替换为/
+  
   const res = await preprocessAndTran({
-    format: path.split('.').pop(),
-    reference_audio: path,
+    format: audioPath.split('.').pop(),
+    reference_audio: audioPath,
     lang
-  })
+  });
+
+  // 清理临时文件
+  if (isTempFile && fs.existsSync(audioPath)) {
+    fs.unlinkSync(audioPath);
+  }
   log.debug('~ train ~ res:', res)
   if (res.code !== 0) {
     return false
