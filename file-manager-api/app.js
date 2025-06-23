@@ -99,7 +99,7 @@ app.get('/files', (req, res) => {
       logger.error(`API: /files - Error scanning directory: ${err.message}`);
       return res.status(500).send('Unable to scan directory');
     }
-    logger.info(`API: /files - Success: Found ${files.length} files in "${relativePath}"`);
+    logger.info(`API: /files - Success: Found ${files.length} files ${files} in "${relativePath}"`);
     res.send(files);
   });
 });
