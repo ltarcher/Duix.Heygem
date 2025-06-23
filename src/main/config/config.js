@@ -6,7 +6,7 @@ const isWin = process.platform === 'win32'
 
 // 远程存储配置 (支持Minio/S3)
 export const remoteStorageConfig = {
-  enabled: false, // 是否启用远程存储
+  enabled: true, // 启用远程存储以实现前后端分离
   type: 'minio',  // 存储类型: minio/s3/oss
   endpoint: 'http://localhost:9000', // Minio服务器地址
   region: 'us-east-1', // 存储区域 (Minio不强制要求，但SDK需要)
