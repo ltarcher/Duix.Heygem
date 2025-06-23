@@ -6,7 +6,7 @@ const isWin = process.platform === 'win32'
 
 // 远程存储配置 (支持Minio/S3)
 export const remoteStorageConfig = {
-  enabled: process.env.REMOTE_STORAGE_ENABLED === 'true' || true, // 从环境变量获取
+  enabled: process.env.REMOTE_STORAGE_ENABLED === 'true' || false, // 从环境变量获取
   type: process.env.REMOTE_STORAGE_TYPE || 'minio',  // 存储类型
   endpoint: process.env.REMOTE_STORAGE_ENDPOINT || 'http://localhost:9000', // 服务地址
   region: process.env.REMOTE_STORAGE_REGION || 'us-east-1', // 存储区域
