@@ -1,26 +1,22 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import { fromIni } from '@aws-sdk/credential-provider-ini'
+import { remoteStorageConfig } from './config.js'
 import path from 'path'
 import fs from 'fs'
 
-// 从环境变量或配置文件获取配置
-// 支持Minio配置示例:
-//   OSS_ENDPOINT=http://minio-server:9000
-//   OSS_REGION=us-east-1
-//   OSS_BUCKET=my-bucket
-//   OSS_PROFILE=minio-user
-const config = {
-  region: process.env.OSS_REGION,
-  endpoint: process.env.OSS_ENDPOINT,
-  credentials: fromIni({ profile: process.env.OSS_PROFILE }),
+// 使用统一配置创建S3客户端
+const s3Client = new S3Client({
+  region: remoteStorageConfig.region,
+  endpoint: remoteStorageConfig.endpoint,
+  credentials: {
+    accessKeyId: remoteStorageConfig.accessKey,
+    secretAccessKey: remoteStorageConfig.secretKey
+  },
   forcePathStyle: true // Minio需要此设置
-}
-
-const s3Client = new S3Client(config)
+})
 
 export class RemoteStorage {
-  constructor(bucketName) {
-    this.bucket = bucketName || process.env.OSS_BUCKET
+  constructor() {
+    this.bucket = remoteStorageConfig.bucket
   }
 
   /**

@@ -4,15 +4,15 @@ import os from 'os'
 const isDev = process.env.NODE_ENV === 'development'
 const isWin = process.platform === 'win32'
 
-// 远程存储配置
+// 远程存储配置 (支持Minio/S3)
 export const remoteStorageConfig = {
-  enabled: process.env.REMOTE_STORAGE_ENABLED === 'true',
-  type: process.env.REMOTE_STORAGE_TYPE || 'oss', // 's3' | 'oss'
-  endpoint: process.env.REMOTE_STORAGE_ENDPOINT,
-  region: process.env.REMOTE_STORAGE_REGION,
-  bucket: process.env.REMOTE_STORAGE_BUCKET,
-  accessKey: process.env.REMOTE_STORAGE_ACCESS_KEY,
-  secretKey: process.env.REMOTE_STORAGE_SECRET_KEY
+  enabled: false, // 是否启用远程存储
+  type: 'minio',  // 存储类型: minio/s3/oss
+  endpoint: 'http://localhost:9000', // Minio服务器地址
+  region: 'us-east-1', // 存储区域
+  bucket: 'heygemdata', // 存储桶名称
+  accessKey: 'myminio', // 访问密钥
+  secretKey: 'myminio' // 秘密密钥
 }
 
 export const serviceUrl = {
