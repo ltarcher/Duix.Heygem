@@ -3,7 +3,17 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        external: [
+          '@aws-sdk/client-s3',
+          '@aws-sdk/s3-request-presigner',
+          '@aws-sdk/util-format-url',
+          '@aws-sdk/util-utf8-node'
+        ]
+      }
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin()]
