@@ -312,9 +312,18 @@ async function exportVideo(videoId, outputPath) {
  */
 async function makeVideoByF2F(audioPath, videoPath) {
   const uuid = crypto.randomUUID()
+  
+  // 在启用远程存储时获取完整URL
+  let audioUrl = audioPath
+  let videoUrl = videoPath
+  if (remoteStorageConfig.enabled) {
+    audioUrl = remoteStorage.getUrl(audioPath)
+    videoUrl = remoteStorage.getUrl(videoPath)
+  }
+
   const param = {
-    audio_url: audioPath,
-    video_url: videoPath,
+    audio_url: audioUrl,
+    video_url: videoUrl,
     code: uuid,
     chaofen: 0,
     watermark_switch: 0,

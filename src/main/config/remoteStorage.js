@@ -133,6 +133,14 @@ export class RemoteStorage {
   async delete(key) {
     return storageAdapter.delete(key)
   }
+
+  getUrl(key) {
+    if (remoteStorageConfig.type === 'api') {
+      return `${remoteStorageConfig.apiEndpoint}/download?filename=${path.basename(key)}&path=${path.dirname(key)}`
+    } else {
+      return `${remoteStorageConfig.endpoint}/${remoteStorageConfig.bucket}/${key}`
+    }
+  }
 }
 
 // 默认导出实例
