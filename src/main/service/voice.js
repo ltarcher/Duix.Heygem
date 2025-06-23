@@ -26,7 +26,12 @@ export async function train(path, lang = 'zh') {
     try {
       const fileName = path.split('/').pop();
       const tmpPath = path.join(os.tmpdir(), fileName);
+      log.debug('Downloading remote audio file', { 
+        sourceUrl: path,
+        tempPath: tmpPath 
+      });
       await remoteStorage.downloadFile(path, tmpPath);
+      log.debug('Remote audio file downloaded successfully');
       audioPath = tmpPath;
       isTempFile = true;
     } catch (error) {
@@ -57,6 +62,7 @@ export async function train(path, lang = 'zh') {
 }
 
 export async function makeAudio4Video({voiceId, text}) {
+  log.debug('makeAudio4Video called', { voiceId, text });
   const fileName = await makeAudio({voiceId, text, targetDir: assetPath.ttsProduct});
   
   if (remoteStorageConfig.enabled) {
@@ -83,6 +89,10 @@ export async function makeAudio4Video({voiceId, text}) {
 }
 
 export async function copyAudio4Video(filePath) {
+  log.debug('copyAudio4Video called', { 
+    filePath,
+    remoteStorageEnabled: remoteStorageConfig.enabled
+  });
   const fileName = dayjs().format('YYYYMMDDHHmmssSSS') + path.extname(filePath);
   
   if (remoteStorageConfig.enabled) {
@@ -151,10 +161,15 @@ export async function makeAudio({voiceId, text, targetDir}) {
       // 使用临时目录存储文件
       const tmpFilePath = path.join(os.tmpdir(), fileName);
       fs.writeFileSync(tmpFilePath, audioBuffer, 'binary');
+      log.debug('Audio file saved to temp location', { tmpFilePath });
 
       // 上传到远程存储
       try {
         await remoteStorage.uploadFile(tmpFilePath, `audio/${fileName}`);
+        log.debug('Audio file uploaded to remote storage', { 
+          remotePath: `audio/${fileName}`,
+          fileSize: audioBuffer.length 
+        });
         // 删除临时文件
         fs.unlinkSync(tmpFilePath);
         return fileName;
@@ -183,6 +198,11 @@ export async function makeAudio({voiceId, text, targetDir}) {
  * @returns
  */
 export async function audition(voiceId, text) {
+  log.debug('audition called', {
+    voiceId,
+    textPreview: text?.substring(0, 20) + (text?.length > 20 ? '...' : ''),
+    storageType: remoteStorageConfig.enabled ? 'remote' : 'local'
+  });
   if (remoteStorageConfig.enabled) {
     // 如果启用了远程存储，直接使用makeAudio生成并上传音频
     const fileName = await makeAudio({ voiceId, text, targetDir: os.tmpdir() });
@@ -198,7 +218,9 @@ export async function audition(voiceId, text) {
 }
 
 export function init() {
-  ipcMain.handle(MODEL_NAME + '/audition', (event, ...args) => {
+  const channel = MODEL_NAME + '/audition';
+  ipcMain.handle(channel, (event, ...args) => {
     return audition(...args)
-  })
+  });
+  log.debug('IPC handler registered', { channel });
 }
