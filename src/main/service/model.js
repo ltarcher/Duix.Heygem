@@ -7,7 +7,7 @@ import { isEmpty } from 'lodash'
 import { insert, selectPage, count, selectByID, remove as deleteModel } from '../dao/f2f-model.js'
 import { train as trainVoice } from './voice.js'
 import { assetPath, remoteStorageConfig } from '../config/config.js'
-import { remoteStorage } from '../util/remoteStorage.js'
+import { remoteStorage } from '../config/remoteStorage.js'
 import log from '../logger.js'
 import { extractAudio } from '../util/ffmpeg.js'
 const MODEL_NAME = 'model'
@@ -143,26 +143,51 @@ function findModel(modelId) {
   }
 }
 
-function removeModel(modelId) {
+async function removeModel(modelId) {
   const model = selectByID(modelId)
+  if (!model) {
+    log.warn(`Model not found with id: ${modelId}`)
+    return
+  }
+  
   log.debug('~ removeModel ~ modelId:', modelId)
 
-  // 如果不是远程存储的模型，则删除本地文件
-  if (!model.isRemote) {
-    // 删除视频
-    const videoPath = path.join(assetPath.model, model.video_path || '')
-    if (!isEmpty(model.video_path) && fs.existsSync(videoPath)) {
-      fs.unlinkSync(videoPath)
+  try {
+    if (model.isRemote) {
+      // 删除远程存储的文件
+      const videoKey = `models/videos/${path.basename(model.video_path)}`
+      const audioKey = `models/audios/${path.basename(model.audio_path)}`
+      
+      try {
+        await remoteStorage.delete(videoKey)
+        await remoteStorage.delete(audioKey)
+        log.info(`Deleted remote files: ${videoKey}, ${audioKey}`)
+      } catch (error) {
+        log.error('Failed to delete remote files:', error)
+        // 即使远程文件删除失败，我们仍然继续删除数据库记录
+      }
+    } else {
+      // 删除本地文件
+      const videoPath = path.join(assetPath.model, model.video_path || '')
+      if (!isEmpty(model.video_path) && fs.existsSync(videoPath)) {
+        fs.unlinkSync(videoPath)
+        log.info(`Deleted local video file: ${videoPath}`)
+      }
+
+      const audioPath = path.join(assetPath.ttsRoot, model.audio_path || '')
+      if (!isEmpty(model.audio_path) && fs.existsSync(audioPath)) {
+        fs.unlinkSync(audioPath)
+        log.info(`Deleted local audio file: ${audioPath}`)
+      }
     }
 
-    // 删除音频
-    const audioPath = path.join(assetPath.ttsRoot, model.audio_path || '')
-    if (!isEmpty(model.audio_path) && fs.existsSync(audioPath)) {
-      fs.unlinkSync(audioPath)
-    }
+    // 删除数据库记录
+    deleteModel(modelId)
+    log.info(`Deleted model record from database: ${modelId}`)
+  } catch (error) {
+    log.error('Error removing model:', error)
+    throw error
   }
-
-  deleteModel(modelId)
 }
 
 function countModel(name = '') {
