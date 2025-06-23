@@ -18,114 +18,98 @@ const MODEL_NAME = 'model'
  * @param {string} videoPath 模特视频路径
  * @returns
  */
-function addModel(modelName, videoPath) {
+async function addModel(modelName, videoPath) {
   log.debug('addModel called', { modelName, videoPath, remoteStorageEnabled: remoteStorageConfig.enabled });
-  // 生成文件名
-  const extname = path.extname(videoPath)
-  const modelFileName = dayjs().format('YYYYMMDDHHmmssSSS') + extname
-  let modelPath = videoPath
-  let audioPath = ''
   
-  // 如果不是远程存储模式，则需要处理本地文件
-  if (!remoteStorageConfig.enabled) {
-    // 确保本地目录存在
-    try {
-      if (!fs.existsSync(assetPath.model)) {
-        fs.mkdirSync(assetPath.model, {
-          recursive: true
-        })
-      }
-      
-      // 复制视频到模型目录
-      modelPath = path.join(assetPath.model, modelFileName)
-      fs.copyFileSync(videoPath, modelPath)
-      
-      // 确保音频目录存在
-      if (!fs.existsSync(assetPath.ttsTrain)) {
-        fs.mkdirSync(assetPath.ttsTrain, {
-          recursive: true
-        })
-      }
-    } catch (err) {
-      log.error(`创建目录或复制文件失败: ${err.message}`, err)
-      throw new Error(`存储初始化失败: ${err.message}`)
-    }
-  }
-  
-  // 设置音频路径
-  audioPath = path.join(assetPath.ttsTrain, modelFileName.replace(extname, '.wav'))
-  
-  return extractAudio(modelPath, audioPath).then(async () => {
-    // 如果启用了远程存储，上传文件到远程存储
+  // 1. 创建唯一临时目录
+  const tempDir = path.join(os.tmpdir(), `model-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`);
+  fs.mkdirSync(tempDir, { recursive: true });
+
+  try {
+    // 2. 准备文件名和路径
+    const extname = path.extname(videoPath);
+    const modelFileName = dayjs().format('YYYYMMDDHHmmssSSS') + extname;
+    const tempVideoPath = path.join(tempDir, modelFileName);
+    const tempAudioPath = path.join(tempDir, modelFileName.replace(extname, '.wav'));
+
+    // 3. 复制视频到临时目录并提取音频
+    fs.copyFileSync(videoPath, tempVideoPath);
+    await extractAudio(tempVideoPath, tempAudioPath);
+
+    // 4. 远程存储处理
     let remoteVideoPath = '';
     let remoteAudioPath = '';
     let isRemote = false;
     
     if (remoteStorageConfig.enabled) {
-      // 创建临时目录处理远程文件
-      const tempDir = path.join(os.tmpdir(), 'model-processing');
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-      }
-
       try {
-        // 上传视频文件
-        const videoKey = `${modelFileName}`;
-        log.debug('Uploading model video to remote storage', {
-          localPath: modelPath,
-          remoteKey: videoKey
+        // 统一远程路径前缀
+        const remotePrefix = `${dayjs().format('YYYY/MM/DD')}/`;
+        const videoKey = `${remotePrefix}${modelFileName}`;
+        const audioKey = `${remotePrefix}${modelFileName.replace(extname, '.wav')}`;
+
+        log.debug('Uploading model files to remote storage', {
+          videoKey,
+          audioKey
         });
-        await remoteStorage.upload(videoKey, modelPath);
-        remoteVideoPath = await remoteStorage.getUrl(videoKey);
-      
-        // 上传音频文件
-        const audioKey = `${modelFileName.replace(extname, '.wav')}`;
-        log.debug('Uploading model audio to remote storage', {
-          localPath: audioPath,
-          remoteKey: audioKey
-        });
-        await remoteStorage.upload(audioKey, audioPath);
-        remoteAudioPath = await remoteStorage.getUrl(audioKey);
-      
+
+        // 并行上传文件
+        await Promise.all([
+          remoteStorage.upload(videoKey, tempVideoPath),
+          remoteStorage.upload(audioKey, tempAudioPath)
+        ]);
+
+        // 获取URL
+        [remoteVideoPath, remoteAudioPath] = await Promise.all([
+          remoteStorage.getUrl(videoKey),
+          remoteStorage.getUrl(audioKey)
+        ]);
+
         isRemote = true;
         log.info(`Model files uploaded to remote storage: ${videoKey}, ${audioKey}`);
 
-        // 清理本地临时文件
-        try {
-          if (fs.existsSync(modelPath)) {
-            fs.unlinkSync(modelPath);
-            log.debug('Removed local model video file', { path: modelPath });
-          }
-          if (fs.existsSync(audioPath)) {
-            fs.unlinkSync(audioPath);
-            log.debug('Removed local model audio file', { path: audioPath });
-          }
-        } catch (cleanupError) {
-          log.error('Failed to clean up local model files:', cleanupError);
-        }
       } catch (error) {
         log.error('Failed to upload model files to remote storage:', error);
-        // 如果远程存储失败，回退到本地存储
-        isRemote = false;
+        throw new Error('Remote storage operation failed');
       }
     }
-    
-    // 训练语音模型
-    const relativeAudioPath = isRemote ? remoteAudioPath : path.relative(assetPath.ttsRoot, audioPath);
-    let voiceId;
-    
-    if (process.env.NODE_ENV === 'development') {
-      // TODO 写死调试
-      voiceId = await trainVoice('origin_audio/test.wav', 'zh');
-    } else {
-      voiceId = await trainVoice(relativeAudioPath, 'zh');
+
+    // 5. 本地存储处理
+    if (!isRemote) {
+      // 确保本地目录存在
+      try {
+        if (!fs.existsSync(assetPath.model)) {
+          fs.mkdirSync(assetPath.model, { recursive: true });
+        }
+        if (!fs.existsSync(assetPath.ttsTrain)) {
+          fs.mkdirSync(assetPath.ttsTrain, { recursive: true });
+        }
+      } catch (err) {
+        log.error(`创建目录失败: ${err.message}`, err);
+        throw new Error(`存储初始化失败: ${err.message}`);
+      }
+
+      // 复制文件到最终位置
+      const finalVideoPath = path.join(assetPath.model, modelFileName);
+      const finalAudioPath = path.join(assetPath.ttsTrain, modelFileName.replace(extname, '.wav'));
+      
+      fs.copyFileSync(tempVideoPath, finalVideoPath);
+      fs.copyFileSync(tempAudioPath, finalAudioPath);
     }
+
+    // 6. 训练语音模型
+    const relativeAudioPath = isRemote ? remoteAudioPath : path.relative(assetPath.ttsRoot, 
+      path.join(assetPath.ttsTrain, modelFileName.replace(extname, '.wav')));
     
-    // 插入模特信息
-    const videoPathToSave = isRemote ? remoteVideoPath : path.relative(assetPath.model, modelPath);
-    const audioPathToSave = isRemote ? remoteAudioPath : path.relative(assetPath.ttsRoot, audioPath);
-    
-    // insert model info to db
+    let voiceId;
+    voiceId = await trainVoice(relativeAudioPath, 'zh');
+
+    // 7. 保存到数据库
+    const videoPathToSave = isRemote ? remoteVideoPath : path.relative(assetPath.model, 
+      path.join(assetPath.model, modelFileName));
+    const audioPathToSave = isRemote ? remoteAudioPath : path.relative(assetPath.ttsRoot, 
+      path.join(assetPath.ttsTrain, modelFileName.replace(extname, '.wav')));
+
     const id = insert({ 
       modelName, 
       videoPath: videoPathToSave, 
@@ -133,9 +117,18 @@ function addModel(modelName, videoPath) {
       voiceId,
       isRemote 
     });
-    
+
     return id;
-  });
+
+  } finally {
+    // 确保清理临时目录
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      log.debug('Cleaned up temporary directory', { path: tempDir });
+    } catch (cleanError) {
+      log.error('Failed to clean temporary directory:', cleanError);
+    }
+  }
 }
 
 function page({ page, pageSize, name = '' }) {
