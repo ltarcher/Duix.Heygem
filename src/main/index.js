@@ -61,6 +61,14 @@ app.whenReady().then(() => {
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
+    
+    // 添加F12快捷键支持，在所有环境中都启用
+    window.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12') {
+        window.webContents.toggleDevTools();
+        event.preventDefault();
+      }
+    });
   })
 
   // 注册主进程服务
