@@ -3,7 +3,8 @@ import crypto from 'crypto'
 import path from 'path'
 import fs from 'fs'
 import { isEmpty } from 'lodash'
-import { assetPath } from '../config/config.js'
+import { assetPath, remoteStorageConfig } from '../config/config.js'
+import { remoteStorage } from '../config/remoteStorage.js'
 import { selectPage,selectByStatus, updateStatus, remove as deleteVideo, findFirstByStatus } from '../dao/video.js'
 import { selectByID as selectF2FModelByID } from '../dao/f2f-model.js'
 import { selectByID as selectVoiceByID } from '../dao/voice.js'
@@ -223,31 +224,60 @@ function synthesisNext() {
   }
 }
 
-function removeVideo(videoId) {
+async function removeVideo(videoId) {
   // 查询视频
   const video = selectVideoByID(videoId)
   log.debug('~ removeVideo ~ videoId:', videoId)
 
   // 删除视频
-  const videoPath = path.join(assetPath.model, video.file_path ||'')
-  if (!isEmpty(video.file_path) && fs.existsSync(videoPath)) {
-    fs.unlinkSync(videoPath)
+  // 删除视频文件（本地或远程）
+  if (!isEmpty(video.file_path)) {
+    if (remoteStorageConfig.enabled) {
+      await remoteStorage.delete(video.file_path)
+    } else {
+      const videoPath = path.join(assetPath.model, video.file_path)
+      if (fs.existsSync(videoPath)) {
+        fs.unlinkSync(videoPath)
+      }
+    }
   }
 
-  // 删除音频
-  const audioPath = path.join(assetPath.model, video.audio_path ||'')
-  if (!isEmpty(video.audio_path) && fs.existsSync(audioPath)) {
-    fs.unlinkSync(audioPath)
+  // 删除音频文件（本地或远程）
+  if (!isEmpty(video.audio_path)) {
+    if (remoteStorageConfig.enabled) {
+      await remoteStorage.delete(video.audio_path)
+    } else {
+      const audioPath = path.join(assetPath.model, video.audio_path)
+      if (fs.existsSync(audioPath)) {
+        fs.unlinkSync(audioPath)
+      }
+    }
   }
 
   // 删除视频表
   return deleteVideo(videoId)
 }
 
-function exportVideo(videoId, outputPath) {
+async function exportVideo(videoId, outputPath) {
   const video = selectVideoByID(videoId)
-  const filePath = path.join(assetPath.model, video.file_path)
-  fs.copyFileSync(filePath, outputPath)
+  
+  if (!video.file_path) {
+    throw new Error('Video file not found')
+  }
+
+  if (remoteStorageConfig.enabled) {
+    // 远程模式下直接下载到目标路径
+    await remoteStorage.download(video.file_path, outputPath)
+  } else {
+    // 本地模式下从assetPath复制
+    const sourcePath = path.join(assetPath.model, video.file_path)
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error('Local video file not found')
+    }
+    fs.copyFileSync(sourcePath, outputPath)
+  }
+
+  return outputPath
 }
 
 /**
@@ -293,10 +323,10 @@ export function init() {
   ipcMain.handle(MODEL_NAME + '/count', (event, ...args) => {
     return countVideo(...args)
   })
-  ipcMain.handle(MODEL_NAME + '/export', (event, ...args) => {
-    return exportVideo(...args)
+  ipcMain.handle(MODEL_NAME + '/export', async (event, ...args) => {
+    return await exportVideo(...args)
   })
-  ipcMain.handle(MODEL_NAME + '/remove', (event, ...args) => {
-    return removeVideo(...args)
+  ipcMain.handle(MODEL_NAME + '/remove', async (event, ...args) => {
+    return await removeVideo(...args)
   })
 }

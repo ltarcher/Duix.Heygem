@@ -4,6 +4,17 @@ import os from 'os'
 const isDev = process.env.NODE_ENV === 'development'
 const isWin = process.platform === 'win32'
 
+// 远程存储配置
+export const remoteStorageConfig = {
+  enabled: process.env.REMOTE_STORAGE_ENABLED === 'true',
+  type: process.env.REMOTE_STORAGE_TYPE || 's3', // 's3' | 'oss'
+  endpoint: process.env.REMOTE_STORAGE_ENDPOINT,
+  region: process.env.REMOTE_STORAGE_REGION,
+  bucket: process.env.REMOTE_STORAGE_BUCKET,
+  accessKey: process.env.REMOTE_STORAGE_ACCESS_KEY,
+  secretKey: process.env.REMOTE_STORAGE_SECRET_KEY
+}
+
 export const serviceUrl = {
   face2face: isDev 
     ? `http://${process.env.FACE2FACE_DEV_IP || '200.200.167.104'}:8383/easy`
