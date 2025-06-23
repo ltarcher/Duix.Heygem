@@ -118,15 +118,17 @@ export async function synthesisVideo(videoId) {
       log.debug('~ makeVideo ~ audioPath:', audioPath)
     }
 
-    // 上传音频到远程存储
-    const audioKey = `audio/${Date.now()}_${path.basename(audioPath)}`
-    await remoteStorage.upload(audioKey, audioPath)
-    
-    // 删除本地临时音频文件
-    if (fs.existsSync(audioPath)) {
-      fs.unlinkSync(audioPath)
+    // 仅在启用远程存储时上传音频
+    if (remoteStorageConfig.enabled) {
+      const audioKey = `audio/${Date.now()}_${path.basename(audioPath)}`
+      await remoteStorage.upload(audioKey, audioPath)
+      
+      // 删除本地临时音频文件
+      if (fs.existsSync(audioPath)) {
+        fs.unlinkSync(audioPath)
+      }
+      audioPath = audioKey
     }
-    audioPath = audioKey
 
     // 调用视频生成接口生成视频
     let result, param
@@ -202,15 +204,17 @@ export async function loopPending() {
         const resultPath = path.join(assetPath.model, statusRes.data.result)
         duration = await getVideoDuration(resultPath)
         
-        // 上传视频到远程存储
-        const videoKey = `video/${Date.now()}_${path.basename(statusRes.data.result)}`
-        await remoteStorage.upload(videoKey, resultPath)
-        
-        // 删除本地临时视频文件
-        if (fs.existsSync(resultPath)) {
-          fs.unlinkSync(resultPath)
+        // 仅在启用远程存储时上传视频
+        if (remoteStorageConfig.enabled) {
+          const videoKey = `video/${Date.now()}_${path.basename(statusRes.data.result)}`
+          await remoteStorage.upload(videoKey, resultPath)
+          
+          // 删除本地临时视频文件
+          if (fs.existsSync(resultPath)) {
+            fs.unlinkSync(resultPath)
+          }
+          statusRes.data.result = videoKey
         }
-        statusRes.data.result = videoKey
       }
 
       update({
