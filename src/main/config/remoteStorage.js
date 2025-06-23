@@ -4,11 +4,16 @@ import path from 'path'
 import fs from 'fs'
 
 // 从环境变量或配置文件获取配置
+// 支持Minio配置示例:
+//   OSS_ENDPOINT=http://minio-server:9000
+//   OSS_REGION=us-east-1
+//   OSS_BUCKET=my-bucket
+//   OSS_PROFILE=minio-user
 const config = {
   region: process.env.OSS_REGION,
   endpoint: process.env.OSS_ENDPOINT,
   credentials: fromIni({ profile: process.env.OSS_PROFILE }),
-  forcePathStyle: true
+  forcePathStyle: true // Minio需要此设置
 }
 
 const s3Client = new S3Client(config)
