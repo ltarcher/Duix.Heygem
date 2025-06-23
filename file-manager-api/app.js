@@ -82,6 +82,23 @@ app.get('/files', (req, res) => {
   });
 });
 
+// 文件删除接口（支持相对路径）
+app.delete('/delete', (req, res) => {
+  const filename = req.query.filename;
+  const relativePath = req.query.path ? sanitizePath(req.query.path) : '';
+  const filePath = path.join(storagePath, relativePath, filename);
+
+  if (!filename) {
+    return res.status(400).send('Filename is required');
+  }
+
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+    res.send({ message: 'File deleted successfully' });
+  } else {
+    res.status(404).send('File not found');
+  }
+});
 // 健康检查接口
 app.get('/health', (req, res) => {
   res.send('OK');
