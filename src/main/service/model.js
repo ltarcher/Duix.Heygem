@@ -20,28 +20,40 @@ const MODEL_NAME = 'model'
  * @returns
  */
 function addModel(modelName, videoPath, useRemoteStorage = false) {
-  // 确保本地目录存在
-  if (!fs.existsSync(assetPath.model)) {
-    fs.mkdirSync(assetPath.model, {
-      recursive: true
-    })
-  }
-  
   // 生成文件名
   const extname = path.extname(videoPath)
   const modelFileName = dayjs().format('YYYYMMDDHHmmssSSS') + extname
-  const modelPath = path.join(assetPath.model, modelFileName)
+  let modelPath = videoPath
+  let audioPath = ''
   
-  // 复制视频到模型目录
-  fs.copyFileSync(videoPath, modelPath)
-  
-  // 用ffmpeg分离音频
-  if (!fs.existsSync(assetPath.ttsTrain)) {
-    fs.mkdirSync(assetPath.ttsTrain, {
-      recursive: true
-    })
+  // 如果不是远程存储模式，则需要处理本地文件
+  if (!(useRemoteStorage && remoteStorageConfig.enabled)) {
+    // 确保本地目录存在
+    try {
+      if (!fs.existsSync(assetPath.model)) {
+        fs.mkdirSync(assetPath.model, {
+          recursive: true
+        })
+      }
+      
+      // 复制视频到模型目录
+      modelPath = path.join(assetPath.model, modelFileName)
+      fs.copyFileSync(videoPath, modelPath)
+      
+      // 确保音频目录存在
+      if (!fs.existsSync(assetPath.ttsTrain)) {
+        fs.mkdirSync(assetPath.ttsTrain, {
+          recursive: true
+        })
+      }
+    } catch (err) {
+      log.error(`创建目录或复制文件失败: ${err.message}`, err)
+      throw new Error(`存储初始化失败: ${err.message}`)
+    }
   }
-  const audioPath = path.join(assetPath.ttsTrain, modelFileName.replace(extname, '.wav'))
+  
+  // 设置音频路径
+  audioPath = path.join(assetPath.ttsTrain, modelFileName.replace(extname, '.wav'))
   
   return extractAudio(modelPath, audioPath).then(async () => {
     // 如果启用了远程存储，上传文件到远程存储
