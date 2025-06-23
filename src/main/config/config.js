@@ -5,10 +5,12 @@ const isDev = process.env.NODE_ENV === 'development'
 const isWin = process.platform === 'win32'
 
 // 远程存储配置 (支持Minio/S3)
+// 远程存储配置 (支持Minio/S3/API)
 export const remoteStorageConfig = {
   enabled: process.env.REMOTE_STORAGE_ENABLED === 'true' || false, // 从环境变量获取
-  type: process.env.REMOTE_STORAGE_TYPE || 'minio',  // 存储类型
-  endpoint: process.env.REMOTE_STORAGE_ENDPOINT || 'http://localhost:9000', // 服务地址
+  type: process.env.REMOTE_STORAGE_TYPE || 'minio',  // 存储类型 (minio/api)
+  endpoint: process.env.REMOTE_STORAGE_ENDPOINT || 'http://localhost:9000', // minio服务地址
+  apiEndpoint: process.env.REMOTE_STORAGE_API_ENDPOINT || 'http://localhost:3000', // API服务地址
   region: process.env.REMOTE_STORAGE_REGION || 'us-east-1', // 存储区域
   bucket: process.env.REMOTE_STORAGE_BUCKET || 'heygemdata', // 存储桶
   accessKey: process.env.REMOTE_STORAGE_ACCESS_KEY || 'myminio', // 访问密钥
