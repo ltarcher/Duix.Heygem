@@ -1,11 +1,28 @@
 const log = require('electron-log')
+const path = require('path')
+const fs = require('fs')
 
 // 统一配置
-// const isDev = process.env.NODE_ENV === 'development'
+const isDev = process.env.NODE_ENV === 'development'
 
 // 开发环境显示 debug，生产环境只显示 info 以上
-// const defaultLevel = isDev ? 'debug' : 'info'
-const defaultLevel = 'debug'
+const defaultLevel = isDev ? 'debug' : 'info'
+
+// 设置日志目录
+const logDir = path.join(process.env.APPDATA || 
+  (process.platform === 'darwin' ? 
+    path.join(process.env.HOME, 'Library/Logs') : 
+    path.join(process.env.HOME, '.config')
+  ), 
+  'Duix.Heygem/logs')
+
+// 确保日志目录存在
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true })
+}
+
+// 设置日志文件路径
+log.transports.file.resolvePath = () => path.join(logDir, 'main.log')
 
 // 统一配置日志级别
 Object.keys(log.transports).forEach((transport) => {
