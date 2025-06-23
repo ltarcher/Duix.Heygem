@@ -62,19 +62,47 @@ function addModel(modelName, videoPath) {
     let isRemote = false;
     
     if (remoteStorageConfig.enabled) {
+      // 创建临时目录处理远程文件
+      const tempDir = path.join(os.tmpdir(), 'model-processing');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
       try {
         // 上传视频文件
         const videoKey = `${modelFileName}`;
+        log.debug('Uploading model video to remote storage', {
+          localPath: modelPath,
+          remoteKey: videoKey
+        });
         await remoteStorage.upload(videoKey, modelPath);
         remoteVideoPath = await remoteStorage.getUrl(videoKey);
-        
+      
         // 上传音频文件
         const audioKey = `${modelFileName.replace(extname, '.wav')}`;
+        log.debug('Uploading model audio to remote storage', {
+          localPath: audioPath,
+          remoteKey: audioKey
+        });
         await remoteStorage.upload(audioKey, audioPath);
         remoteAudioPath = await remoteStorage.getUrl(audioKey);
-        
+      
         isRemote = true;
         log.info(`Model files uploaded to remote storage: ${videoKey}, ${audioKey}`);
+
+        // 清理本地临时文件
+        try {
+          if (fs.existsSync(modelPath)) {
+            fs.unlinkSync(modelPath);
+            log.debug('Removed local model video file', { path: modelPath });
+          }
+          if (fs.existsSync(audioPath)) {
+            fs.unlinkSync(audioPath);
+            log.debug('Removed local model audio file', { path: audioPath });
+          }
+        } catch (cleanupError) {
+          log.error('Failed to clean up local model files:', cleanupError);
+        }
       } catch (error) {
         log.error('Failed to upload model files to remote storage:', error);
         // 如果远程存储失败，回退到本地存储
@@ -169,30 +197,66 @@ async function removeModel(modelId) {
   try {
     if (model.isRemote) {
       // 删除远程存储的文件
-      const videoKey = `${path.basename(model.video_path)}`
-      const audioKey = `${path.basename(model.audio_path)}`
+      const videoKey = `${path.basename(model.video_path)}`;
+      const audioKey = `${path.basename(model.audio_path)}`;
+      
+      log.debug('Deleting remote model files', { videoKey, audioKey });
+      
+      // 重试机制
+      const maxRetries = 3;
+      let retryCount = 0;
+      
+      const deleteWithRetry = async (key) => {
+        while (retryCount < maxRetries) {
+          try {
+            await remoteStorage.delete(key);
+            log.info(`Successfully deleted remote file: ${key}`);
+            return true;
+          } catch (error) {
+            retryCount++;
+            log.warn(`Failed to delete remote file (attempt ${retryCount}/${maxRetries}): ${key}`, error);
+            if (retryCount >= maxRetries) {
+              log.error(`Failed to delete remote file after ${maxRetries} attempts: ${key}`, error);
+              return false;
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // 指数退避
+          }
+        }
+      };
       
       try {
-        await remoteStorage.delete(videoKey)
-        await remoteStorage.delete(audioKey)
-        log.info(`Deleted remote files: ${videoKey}, ${audioKey}`)
+        const videoDeleted = await deleteWithRetry(videoKey);
+        const audioDeleted = await deleteWithRetry(audioKey);
+        
+        if (!videoDeleted || !audioDeleted) {
+          log.error('Some remote files could not be deleted', {
+            videoDeleted,
+            audioDeleted
+          });
+        }
       } catch (error) {
-        log.error('Failed to delete remote files:', error)
-        // 即使远程文件删除失败，我们仍然继续删除数据库记录
+        log.error('Failed to delete remote files:', error);
       }
     } else {
       // 删除本地文件
-      const videoPath = path.join(assetPath.model, model.video_path || '')
-      if (!isEmpty(model.video_path) && fs.existsSync(videoPath)) {
-        fs.unlinkSync(videoPath)
-        log.info(`Deleted local video file: ${videoPath}`)
-      }
-
-      const audioPath = path.join(assetPath.ttsRoot, model.audio_path || '')
-      if (!isEmpty(model.audio_path) && fs.existsSync(audioPath)) {
-        fs.unlinkSync(audioPath)
-        log.info(`Deleted local audio file: ${audioPath}`)
-      }
+      const deleteLocalFile = (filePath) => {
+        if (!isEmpty(filePath) && fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+            log.info(`Deleted local file: ${filePath}`);
+          } catch (error) {
+            log.error(`Failed to delete local file: ${filePath}`, error);
+          }
+        } else {
+          log.debug(`Local file not found or empty path: ${filePath}`);
+        }
+      };
+      
+      const videoPath = path.join(assetPath.model, model.video_path || '');
+      const audioPath = path.join(assetPath.ttsRoot, model.audio_path || '');
+      
+      deleteLocalFile(videoPath);
+      deleteLocalFile(audioPath);
     }
 
     // 删除数据库记录

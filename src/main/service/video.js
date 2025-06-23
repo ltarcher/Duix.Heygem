@@ -146,22 +146,57 @@ export async function synthesisVideo(videoId) {
 
     // 仅在启用远程存储时上传音频
     if (remoteStorageConfig.enabled) {
-      const audioKey = `audio/${Date.now()}_${path.basename(audioPath)}`
-      log.debug('Uploading audio to remote storage', {
-        localPath: audioPath,
-        remoteKey: audioKey
-      })
-      await remoteStorage.upload(audioKey, audioPath)
-      log.info('Audio uploaded to remote storage', {
-        remotePath: audioKey
-      })
-      
-      // 删除本地临时音频文件
-      if (fs.existsSync(audioPath)) {
-        fs.unlinkSync(audioPath)
-        log.debug('Local audio file removed', {path: audioPath})
+      // 创建专用临时目录
+      const tempDir = path.join(os.tmpdir(), 'video-processing');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
       }
-      audioPath = audioKey
+
+      const audioKey = `audio/${Date.now()}_${path.basename(audioPath)}`;
+      
+      // 重试上传机制
+      const maxRetries = 3;
+      let retryCount = 0;
+      let uploadSuccess = false;
+      
+      while (retryCount < maxRetries && !uploadSuccess) {
+        try {
+          log.debug('Uploading audio to remote storage (attempt %d/%d)', 
+            retryCount + 1, maxRetries, {
+              localPath: audioPath,
+              remoteKey: audioKey
+            });
+          
+          await remoteStorage.upload(audioKey, audioPath);
+          uploadSuccess = true;
+          log.info('Audio uploaded to remote storage', {
+            remotePath: audioKey,
+            size: fs.existsSync(audioPath) ? `${(fs.statSync(audioPath).size / 1024).toFixed(2)}KB` : 'unknown'
+          });
+        } catch (error) {
+          retryCount++;
+          log.warn('Audio upload failed (attempt %d/%d): %s', 
+            retryCount, maxRetries, error.message);
+          
+          if (retryCount >= maxRetries) {
+            log.error('Failed to upload audio after retries', error);
+            throw error;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+      }
+      
+      // 清理本地文件
+      try {
+        if (fs.existsSync(audioPath)) {
+          fs.unlinkSync(audioPath);
+          log.debug('Local audio file removed', {path: audioPath});
+        }
+      } catch (error) {
+        log.error('Failed to remove local audio file:', error);
+      }
+      
+      audioPath = audioKey;
     }
 
     // 调用视频生成接口生成视频
@@ -266,25 +301,78 @@ export async function loopPending() {
         duration = 88
         log.debug('Using mock duration in development mode')
       }else{
-        const resultPath = remoteStorageConfig.enabled 
-          ? statusRes.data.result 
-          : path.join(assetPath.model, statusRes.data.result)
+        let resultPath
+        if (remoteStorageConfig.enabled) {
+          // 创建专用临时目录
+          const tempDir = path.join(os.tmpdir(), 'video-processing')
+          if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true })
+          }
+        
+          const tempFilePath = path.join(tempDir, `${Date.now()}_${path.basename(statusRes.data.result)}`)
+          
+          // 重试下载机制
+          const maxRetries = 3
+          let retryCount = 0
+          let downloadSuccess = false
+          
+          while (retryCount < maxRetries && !downloadSuccess) {
+            try {
+              log.debug('Downloading remote video (attempt %d/%d)', 
+                retryCount + 1, maxRetries, {
+                  remotePath: statusRes.data.result,
+                  localPath: tempFilePath
+                })
+              
+              await remoteStorage.download(statusRes.data.result, tempFilePath)
+              downloadSuccess = true
+              log.info('Remote video downloaded successfully', {
+                path: tempFilePath,
+                size: fs.existsSync(tempFilePath) ? `${(fs.statSync(tempFilePath).size / 1024 / 1024).toFixed(2)}MB` : 'unknown'
+              })
+            } catch (error) {
+              retryCount++
+              log.warn('Video download failed (attempt %d/%d): %s', 
+                retryCount, maxRetries, error.message)
+              
+              if (retryCount >= maxRetries) {
+                log.error('Failed to download video after retries', error)
+                throw error
+              }
+              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+            }
+          }
+          
+          resultPath = tempFilePath
+        } else {
+          resultPath = path.join(assetPath.model, statusRes.data.result)
+          log.debug('Using local video file', {path: resultPath})
+        }
+
+        // 获取视频时长
         log.debug('Getting video duration', {resultPath})
         duration = await getVideoDuration(resultPath)
-        
-        // 仅在启用远程存储时上传视频
+      
         if (remoteStorageConfig.enabled) {
+          // 上传处理后的视频
           const videoKey = `video/${Date.now()}_${path.basename(statusRes.data.result)}`
-          log.info('Uploading video to remote storage', {
+          log.info('Uploading processed video to remote storage', {
             localPath: resultPath,
             remoteKey: videoKey
           })
           await remoteStorage.upload(videoKey, resultPath)
-          
-          // 删除本地临时视频文件
-          if (fs.existsSync(resultPath)) {
-            log.debug('Removing local video file', {path: resultPath})
-            fs.unlinkSync(resultPath)
+        
+          // 清理临时文件
+          try {
+            if (fs.existsSync(resultPath)) {
+              fs.unlinkSync(resultPath)
+              log.debug('Temporary video file removed', {path: resultPath})
+            }
+          } catch (err) {
+            log.error('Failed to remove temporary video file', {
+              path: resultPath,
+              error: err.message
+            })
           }
           statusRes.data.result = videoKey
         }

@@ -23,19 +23,47 @@ export async function train(path, lang = 'zh') {
   
   // 如果是远程URL，先下载到临时目录
   if (path.startsWith('http') || path.startsWith('https')) {
+    // 创建专用临时目录
+    const tempDir = path.join(os.tmpdir(), 'voice-processing');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
     try {
       const fileName = path.split('/').pop();
-      const tmpPath = path.join(os.tmpdir(), fileName);
+      const tmpPath = path.join(tempDir, fileName);
       log.debug('Downloading remote audio file', { 
         sourceUrl: path,
         tempPath: tmpPath 
       });
-      await remoteStorage.downloadFile(path, tmpPath);
-      log.debug('Remote audio file downloaded successfully');
+      
+      // 重试机制
+      const maxRetries = 3;
+      let retryCount = 0;
+      let downloadSuccess = false;
+      
+      while (retryCount < maxRetries && !downloadSuccess) {
+        try {
+          await remoteStorage.downloadFile(path, tmpPath);
+          downloadSuccess = true;
+          log.debug('Remote audio file downloaded successfully', {
+            path: tmpPath,
+            size: fs.statSync(tmpPath).size
+          });
+        } catch (error) {
+          retryCount++;
+          log.warn(`Download failed (attempt ${retryCount}/${maxRetries})`, error);
+          if (retryCount >= maxRetries) {
+            throw error;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+      }
+      
       audioPath = tmpPath;
       isTempFile = true;
     } catch (error) {
-      log.error('Failed to download remote audio file:', error);
+      log.error('Failed to download remote audio file after retries:', error);
       throw new Error('Failed to download remote audio file');
     }
   }
@@ -158,25 +186,61 @@ export async function makeAudio({voiceId, text, targetDir}) {
     const fileName = `${uuid}.wav`;
 
     if (remoteStorageConfig.enabled) {
-      // 使用临时目录存储文件
-      const tmpFilePath = path.join(os.tmpdir(), fileName);
-      fs.writeFileSync(tmpFilePath, audioBuffer, 'binary');
-      log.debug('Audio file saved to temp location', { tmpFilePath });
-
-      // 上传到远程存储
-      try {
-        await remoteStorage.uploadFile(tmpFilePath, `audio/${fileName}`);
-        log.debug('Audio file uploaded to remote storage', { 
-          remotePath: `audio/${fileName}`,
-          fileSize: audioBuffer.length 
-        });
-        // 删除临时文件
-        fs.unlinkSync(tmpFilePath);
-        return fileName;
-      } catch (error) {
-        log.error('Error uploading to remote storage:', error);
-        throw error;
+      // 创建专用临时目录
+      const tempDir = path.join(os.tmpdir(), 'voice-processing');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
       }
+      
+      const tmpFilePath = path.join(tempDir, fileName);
+      
+      // 写入临时文件
+      try {
+        fs.writeFileSync(tmpFilePath, audioBuffer, 'binary');
+        log.debug('Audio file saved to temp location', { 
+          path: tmpFilePath,
+          size: audioBuffer.length 
+        });
+      } catch (error) {
+        log.error('Failed to save audio to temp location:', error);
+        throw new Error('Failed to save audio file');
+      }
+
+      // 上传到远程存储（带重试机制）
+      const maxRetries = 3;
+      let retryCount = 0;
+      let uploadSuccess = false;
+      
+      while (retryCount < maxRetries && !uploadSuccess) {
+        try {
+          await remoteStorage.uploadFile(tmpFilePath, `audio/${fileName}`);
+          uploadSuccess = true;
+          log.info('Audio file uploaded to remote storage', { 
+            remotePath: `audio/${fileName}`,
+            size: audioBuffer.length 
+          });
+        } catch (error) {
+          retryCount++;
+          log.warn(`Upload failed (attempt ${retryCount}/${maxRetries})`, error);
+          if (retryCount >= maxRetries) {
+            log.error('Failed to upload audio after retries:', error);
+            throw error;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+      }
+      
+      // 清理临时文件
+      try {
+        if (fs.existsSync(tmpFilePath)) {
+          fs.unlinkSync(tmpFilePath);
+          log.debug('Removed temporary audio file', { path: tmpFilePath });
+        }
+      } catch (error) {
+        log.error('Failed to remove temporary audio file:', error);
+      }
+      
+      return fileName;
     } else {
       // 本地存储
       if (!fs.existsSync(targetDir)) {
