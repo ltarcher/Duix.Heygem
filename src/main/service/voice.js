@@ -13,6 +13,7 @@ import os from 'os'
 const MODEL_NAME = 'voice'
 
 export function getAllTimbre() {
+  log.debug('getAllTimbre called');
   return selectAll()
 }
 

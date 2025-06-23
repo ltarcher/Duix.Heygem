@@ -19,6 +19,7 @@ const MODEL_NAME = 'model'
  * @returns
  */
 function addModel(modelName, videoPath) {
+  log.debug('addModel called', { modelName, videoPath, remoteStorageEnabled: remoteStorageConfig.enabled });
   // 生成文件名
   const extname = path.extname(videoPath)
   const modelFileName = dayjs().format('YYYYMMDDHHmmssSSS') + extname
@@ -110,6 +111,7 @@ function addModel(modelName, videoPath) {
 }
 
 function page({ page, pageSize, name = '' }) {
+  log.debug('page called', { page, pageSize, name });
   const total = count(name)
   return {
     total,
@@ -134,6 +136,7 @@ function page({ page, pageSize, name = '' }) {
 }
 
 function findModel(modelId) {
+  log.debug('findModel called', { modelId });
   const model = selectByID(modelId)
   if (!model) return null
   
@@ -202,6 +205,7 @@ async function removeModel(modelId) {
 }
 
 function countModel(name = '') {
+  log.debug('countModel called', { name });
   return count(name)
 }
 
