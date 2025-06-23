@@ -34,7 +34,11 @@ function page({ page, pageSize, name = '' }) {
   const list = selectPage({ page, pageSize, name }).map((video) => {
     video = {
       ...video,
-      file_path: video.file_path ? path.join(assetPath.model, video.file_path) : video.file_path
+      file_path: video.file_path 
+        ? (remoteStorageConfig.enabled 
+           ? video.file_path 
+           : path.join(assetPath.model, video.file_path))
+        : video.file_path
     }
 
     if(video.status === 'waiting'){
@@ -53,7 +57,11 @@ function findVideo(videoId) {
   const video = selectVideoByID(videoId)
   return {
     ...video,
-    file_path: video.file_path ? path.join(assetPath.model, video.file_path) : video.file_path
+    file_path: video.file_path 
+      ? (remoteStorageConfig.enabled 
+         ? video.file_path 
+         : path.join(assetPath.model, video.file_path))
+      : video.file_path
   }
 }
 
@@ -201,7 +209,9 @@ export async function loopPending() {
       if(process.env.NODE_ENV === 'development'){
         duration = 88
       }else{
-        const resultPath = path.join(assetPath.model, statusRes.data.result)
+        const resultPath = remoteStorageConfig.enabled 
+          ? statusRes.data.result 
+          : path.join(assetPath.model, statusRes.data.result)
         duration = await getVideoDuration(resultPath)
         
         // 仅在启用远程存储时上传视频
