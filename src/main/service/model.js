@@ -64,12 +64,12 @@ function addModel(modelName, videoPath, useRemoteStorage = false) {
     if (useRemoteStorage && remoteStorageConfig.enabled) {
       try {
         // 上传视频文件
-        const videoKey = `models/videos/${modelFileName}`;
+        const videoKey = `${modelFileName}`;
         await remoteStorage.upload(videoKey, modelPath);
         remoteVideoPath = await remoteStorage.getUrl(videoKey);
         
         // 上传音频文件
-        const audioKey = `models/audios/${modelFileName.replace(extname, '.wav')}`;
+        const audioKey = `${modelFileName.replace(extname, '.wav')}`;
         await remoteStorage.upload(audioKey, audioPath);
         remoteAudioPath = await remoteStorage.getUrl(audioKey);
         
@@ -167,8 +167,8 @@ async function removeModel(modelId) {
   try {
     if (model.isRemote) {
       // 删除远程存储的文件
-      const videoKey = `models/videos/${path.basename(model.video_path)}`
-      const audioKey = `models/audios/${path.basename(model.audio_path)}`
+      const videoKey = `${path.basename(model.video_path)}`
+      const audioKey = `${path.basename(model.audio_path)}`
       
       try {
         await remoteStorage.delete(videoKey)
