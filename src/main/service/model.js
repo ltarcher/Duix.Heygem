@@ -44,7 +44,7 @@ async function addModel(modelName, videoPath) {
     if (remoteStorageConfig.enabled) {
       try {
         // 统一远程路径前缀
-        const remotePrefix = `${dayjs().format('YYYY/MM/DD')}/`;
+        const remotePrefix = ``;
         const videoKey = `${remotePrefix}${modelFileName}`;
         const audioKey = `${remotePrefix}${modelFileName.replace(extname, '.wav')}`;
 
