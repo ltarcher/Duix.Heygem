@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  file-manager:
+    build: .
+    image: file-manager-api:1.0
+    container_name: file-manager-api
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./storage:/app/storage
+    environment:
+      - PORT=3000
+      - STORAGE_PATH=/app/storage
