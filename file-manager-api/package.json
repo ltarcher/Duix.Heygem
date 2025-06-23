@@ -8,6 +8,8 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "express-fileupload": "^1.4.0"
+    "express-fileupload": "^1.4.0",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
   }
 }
