@@ -93,7 +93,8 @@ function makeVideo(videoId) {
 }
 
 export async function synthesisVideo(videoId) {
-  try{
+  try {
+    log.debug('Starting video synthesis', { videoId });
     update({
       id: videoId,
       file_path: null,
@@ -103,37 +104,62 @@ export async function synthesisVideo(videoId) {
 
     // 查询Video
     const video = selectVideoByID(videoId)
-    log.debug('~ makeVideo ~ video:', video)
+    log.debug('Video details fetched', { 
+      videoId,
+      modelId: video.model_id,
+      voiceId: video.voice_id,
+      textLength: video.text_content?.length 
+    })
 
     // 根据modelId获取model信息
     const model = selectF2FModelByID(video.model_id)
-    log.debug('~ makeVideo ~ model:', model)
+    log.debug('Model details fetched', {
+      modelId: model.id,
+      videoPath: model.video_path
+    })
 
     let audioPath
     if(video.audio_path){
-      // 将audio_path复制到ttsProduct目录下
+      log.debug('Using existing audio file', {audioPath: video.audio_path})
       audioPath = video.audio_path
     }else{
       // 根据model信息中的voiceId获取voice信息
       const voice = selectVoiceByID(video.voice_id || model.voice_id)
-      log.debug('~ makeVideo ~ voice:', voice)
+      log.debug('Selected voice model', {
+        voiceId: voice.id,
+        voiceName: voice.name
+      })
 
       // 调用tts接口生成音频
+      log.info('Generating audio from text', {
+        textPreview: video.text_content?.substring(0, 50) + (video.text_content?.length > 50 ? '...' : '')
+      })
       audioPath = await makeAudio4Video({
         voiceId: voice.id,
         text: video.text_content
       })
-      log.debug('~ makeVideo ~ audioPath:', audioPath)
+      log.info('Audio generated successfully', {
+        audioPath,
+        fileSize: fs.existsSync(audioPath) ? `${(fs.statSync(audioPath).size / 1024).toFixed(2)}KB` : 'unknown'
+      })
     }
 
     // 仅在启用远程存储时上传音频
     if (remoteStorageConfig.enabled) {
       const audioKey = `audio/${Date.now()}_${path.basename(audioPath)}`
+      log.debug('Uploading audio to remote storage', {
+        localPath: audioPath,
+        remoteKey: audioKey
+      })
       await remoteStorage.upload(audioKey, audioPath)
+      log.info('Audio uploaded to remote storage', {
+        remotePath: audioKey
+      })
       
       // 删除本地临时音频文件
       if (fs.existsSync(audioPath)) {
         fs.unlinkSync(audioPath)
+        log.debug('Local audio file removed', {path: audioPath})
       }
       audioPath = audioKey
     }
@@ -181,8 +207,10 @@ export async function synthesisVideo(videoId) {
 }
 
 export async function loopPending() {
+  log.debug('Starting pending video tasks check')
   const video = findFirstByStatus('pending')
   if (!video) {
+    log.debug('No pending videos found, checking for waiting tasks')
     synthesisNext()
 
     setTimeout(() => {
@@ -191,36 +219,71 @@ export async function loopPending() {
     return
   }
 
+  log.info('Checking video task status', {
+    videoId: video.id,
+    taskCode: video.code,
+    currentStatus: video.status
+  })
+  const startTime = Date.now()
   const statusRes = await getVideoStatus(video.code)
+  const elapsedMs = Date.now() - startTime
+  log.debug('Video status API response', {
+    videoId: video.id,
+    statusCode: statusRes.code,
+    elapsedMs,
+    response: statusRes.data
+  })
 
   if ([9999, 10002, 10003].includes(statusRes.code)) {
+    log.error('Video task failed', {
+      videoId: video.id,
+      errorCode: statusRes.code,
+      errorMessage: statusRes.msg
+    })
     updateStatus(video.id, 'failed', statusRes.msg)
   } else if (statusRes.code === 10000) {
     if (statusRes.data.status === 1) {
+      log.debug('Video task in progress', {
+        videoId: video.id,
+        progress: statusRes.data.progress,
+        message: statusRes.data.msg
+      })
       updateStatus(
         video.id,
         'pending',
         statusRes.data.msg,
         statusRes.data.progress,
       )
-    }else if (statusRes.data.status === 2) { // 合成成功
+    } else if (statusRes.data.status === 2) { // 合成成功
+      log.info('Video synthesis completed successfully', {
+        videoId: video.id,
+        resultPath: statusRes.data.result
+      })
+      
       // ffmpeg 获取视频时长
       let duration
       if(process.env.NODE_ENV === 'development'){
         duration = 88
+        log.debug('Using mock duration in development mode')
       }else{
         const resultPath = remoteStorageConfig.enabled 
           ? statusRes.data.result 
           : path.join(assetPath.model, statusRes.data.result)
+        log.debug('Getting video duration', {resultPath})
         duration = await getVideoDuration(resultPath)
         
         // 仅在启用远程存储时上传视频
         if (remoteStorageConfig.enabled) {
           const videoKey = `video/${Date.now()}_${path.basename(statusRes.data.result)}`
+          log.info('Uploading video to remote storage', {
+            localPath: resultPath,
+            remoteKey: videoKey
+          })
           await remoteStorage.upload(videoKey, resultPath)
           
           // 删除本地临时视频文件
           if (fs.existsSync(resultPath)) {
+            log.debug('Removing local video file', {path: resultPath})
             fs.unlinkSync(resultPath)
           }
           statusRes.data.result = videoKey
@@ -235,8 +298,17 @@ export async function loopPending() {
         file_path: statusRes.data.result,
         duration
       })
+      log.info('Video status updated to success', {
+        videoId: video.id,
+        duration,
+        filePath: statusRes.data.result
+      })
 
     } else if (statusRes.data.status === 3) {
+      log.error('Video task failed', {
+        videoId: video.id,
+        errorMessage: statusRes.data.msg
+      })
       updateStatus(video.id, 'failed', statusRes.data.msg)
     }
   }
