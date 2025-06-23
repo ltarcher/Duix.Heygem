@@ -6,7 +6,7 @@ const fs = require('fs')
 const isDev = process.env.NODE_ENV === 'development'
 
 // 开发环境显示 debug，生产环境只显示 info 以上
-const defaultLevel = isDev ? 'debug' : 'info'
+const defaultLevel = 'debug' //isDev ? 'debug' : 'info'
 
 // 设置日志目录
 const logDir = path.join(process.env.APPDATA || 
