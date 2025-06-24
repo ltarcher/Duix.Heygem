@@ -94,10 +94,8 @@ async function addModel(modelName, videoPath) {
     voiceId = await trainVoice(relativeAudioPath, 'zh');
 
     // 7. 保存到数据库，都是相对路径
-    const videoPathToSave = path.relative(assetPath.model, 
-      path.join(assetPath.model, modelFileName));
-    const audioPathToSave = path.relative(assetPath.ttsRoot, 
-      path.join(assetPath.ttsTrain, modelFileName.replace(extname, '.wav')));
+    const videoPathToSave = path.relative(assetPath.model, finalVideoPath);
+    const audioPathToSave = path.relative(assetPath.ttsTrain, finalAudioPath);
 
     const id = insert({ 
       modelName, 
