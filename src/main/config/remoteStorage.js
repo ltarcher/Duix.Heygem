@@ -25,6 +25,22 @@ if (remoteStorageConfig.type === 'api') {
         formData.append('file', fs.createReadStream(file));
         formData.append('path', path.dirname(key));
 
+        // 记录formData字段信息
+        const formDataFields = {
+          file: {
+            name: path.basename(file),
+            size: fs.statSync(file).size,
+            type: 'file'
+          },
+          path: path.dirname(key)
+        };
+        
+        log.debug('[API Storage] FormData fields', {
+          key,
+          formDataFields,
+          headers: formData.getHeaders()
+        });
+
         const response = await axios.post(
           `${remoteStorageConfig.apiEndpoint}/upload`,
           formData,
