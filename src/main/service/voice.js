@@ -35,6 +35,25 @@ export async function train(filepath, lang = 'zh') {
     return false
   } else {
     const { asr_format_audio_url, reference_audio_text } = res
+    // 如果是远程存储，那么把训练后的音频下载到本地存储
+    if (remoteStorageConfig.enabled) {
+      // 如果是远程存储，那么把训练后的音频下载到本地存储
+      try {
+        const format_audio = path.join(assetPath.ttsTrain, `format_${path.basename(audioPath)}`)
+        const format_denoise = path.join(assetPath.ttsTrain, `format_denoise_${path.basename(audioPath)}`)
+        await remoteStorage.download(format_audio, format_audio);
+        await remoteStorage.download(format_denoise, format_denoise);
+
+        log.debug('~ train ~ localformatPath:', format_audio)
+        log.debug('~ train ~ localdenoisePath:', format_denoise)
+
+      } catch (error) {
+        log.error('Error downloading audio from remote storage:', error);
+        throw error;
+      }
+    }
+        
+
     return insert({ origin_audio_path: audioPath, lang, asr_format_audio_url, reference_audio_text })
   }
 }
