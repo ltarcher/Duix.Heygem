@@ -44,7 +44,7 @@ export async function train(filepath, lang = 'zh') {
       
       while (retryCount < maxRetries && !downloadSuccess) {
         try {
-          await remoteStorage.downloadFile(filepath, tmpPath);
+          await remoteStorage.download(filepath, tmpPath);
           downloadSuccess = true;
           log.debug('Remote audio file downloaded successfully', {
             path: tmpPath,
