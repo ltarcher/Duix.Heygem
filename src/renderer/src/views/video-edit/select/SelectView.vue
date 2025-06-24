@@ -61,6 +61,10 @@ const action = {
     } else if (isSubmitOK) {
       await action.searchList()
     }
+    //强制刷新列表
+    else {
+      await action.searchList()
+    }
   }
 }
 </script>

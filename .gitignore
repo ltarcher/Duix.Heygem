@@ -4,3 +4,5 @@ out
 .idea
 .DS_Store
 *.log*
+*.mp4
+*.wav
