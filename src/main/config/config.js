@@ -27,7 +27,7 @@ export const serviceUrl = {
 }
 
 // 获取数据根目录，优先使用环境变量
-const dataRoot = isWin
+const dataRoot = remoteStorageConfig.enabled ? "": isWin
   ? process.env.HEYGEM_DATA_ROOT || 'D:'
   : process.env.HEYGEM_DATA_ROOT || os.homedir()
 
