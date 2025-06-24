@@ -20,20 +20,24 @@ export function getAllTimbre() {
 export async function train(filepath, lang = 'zh') {
   let audioPath = filepath;
   let isTempFile = false;
+  let downfile = '';
+  let downpath = '';
   
   // 如果是远程URL，先下载到临时目录
-  if (filepath.startsWith('http') || filepath.startsWith('https')) {
+  if (audioPath.startsWith('http') || audioPath.startsWith('https')) {
     // 创建专用临时目录
+    const url = new URL(audioPath);
+    downfile = url.searchParams.get('filename');
+    downpath = url.searchParams.get('path');
     const tempDir = path.join(os.tmpdir(), 'voice-processing');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
     
     try {
-      const fileName = filepath.split('/').pop();
-      const tmpPath = path.join(tempDir, fileName);
+      const tmpPath = path.join(tempDir, downfile);
       log.debug('Downloading remote audio file', { 
-        sourceUrl: filepath,
+        sourceUrl: audioPath,
         tempPath: tmpPath 
       });
       

@@ -93,6 +93,8 @@ if (remoteStorageConfig.type === 'api') {
         endpoint: remoteStorageConfig.apiEndpoint
       });
 
+      let downfile, downpath;
+
       //key如果是以http、https开头，需要从url中解析filename和path参数
       if (key.startsWith('http://') || key.startsWith('https://')) {
         const url = new URL(key);
