@@ -120,8 +120,7 @@ async function addModel(modelName, videoPath) {
       modelName, 
       videoPath: videoPathToSave, 
       audioPath: audioPathToSave, 
-      voiceId,
-      isRemote 
+      voiceId 
     });
 
     return id;
