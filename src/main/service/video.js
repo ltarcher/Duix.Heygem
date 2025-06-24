@@ -144,61 +144,6 @@ export async function synthesisVideo(videoId) {
       })
     }
 
-    // 仅在启用远程存储时上传音频
-    if (remoteStorageConfig.enabled) {
-      // 创建专用临时目录
-      const tempDir = path.join(os.tmpdir(), 'video-processing');
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-      }
-
-      const audioKey = `audio/${Date.now()}_${path.basename(audioPath)}`;
-      
-      // 重试上传机制
-      const maxRetries = 3;
-      let retryCount = 0;
-      let uploadSuccess = false;
-      
-      while (retryCount < maxRetries && !uploadSuccess) {
-        try {
-          log.debug('Uploading audio to remote storage (attempt %d/%d)', 
-            retryCount + 1, maxRetries, {
-              localPath: audioPath,
-              remoteKey: audioKey
-            });
-          
-          await remoteStorage.upload(audioKey, audioPath);
-          uploadSuccess = true;
-          log.info('Audio uploaded to remote storage', {
-            remotePath: audioKey,
-            size: fs.existsSync(audioPath) ? `${(fs.statSync(audioPath).size / 1024).toFixed(2)}KB` : 'unknown'
-          });
-        } catch (error) {
-          retryCount++;
-          log.warn('Audio upload failed (attempt %d/%d): %s', 
-            retryCount, maxRetries, error.message);
-          
-          if (retryCount >= maxRetries) {
-            log.error('Failed to upload audio after retries', error);
-            throw error;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-        }
-      }
-      
-      // 清理本地文件
-      try {
-        if (fs.existsSync(audioPath)) {
-          fs.unlinkSync(audioPath);
-          log.debug('Local audio file removed', {path: audioPath});
-        }
-      } catch (error) {
-        log.error('Failed to remove local audio file:', error);
-      }
-      
-      audioPath = audioKey;
-    }
-
     // 调用视频生成接口生成视频
     let result, param
     ({ result, param } = await makeVideoByF2F(audioPath, model.video_path))
@@ -479,12 +424,8 @@ async function makeVideoByF2F(audioPath, videoPath) {
   const uuid = crypto.randomUUID()
   
   // 在启用远程存储时获取完整URL
-  let audioUrl = audioPath
-  let videoUrl = videoPath
-  if (remoteStorageConfig.enabled) {
-    audioUrl = remoteStorage.getUrl(audioPath)
-    videoUrl = remoteStorage.getUrl(videoPath)
-  }
+  let audioUrl = path.relative(assetPath.dataRoot, audioPath)
+  let videoUrl = path.relative(assetPath.dataRoot, videoPath)
 
   const param = {
     audio_url: audioUrl,

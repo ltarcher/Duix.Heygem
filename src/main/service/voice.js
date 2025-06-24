@@ -103,8 +103,9 @@ export async function makeAudio({voiceId, text, targetDir}) {
           recursive: true
         })
       }
-      fs.writeFileSync(path.join(targetDir, `${uuid}.wav`), res, 'binary')
-      return `${uuid}.wav`
+      let filename = path.join(targetDir, `${uuid}.wav`)
+      fs.writeFileSync(filename, res, 'binary')
+      return filename
     })
     .catch((error) => {
       log.error('Error generating audio:', error)
