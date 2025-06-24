@@ -62,12 +62,6 @@ async function addModel(modelName, videoPath) {
           remoteStorage.upload(audioKey, tempAudioPath)
         ]);
 
-        // 获取URL
-        [remoteVideoPath, remoteAudioPath] = await Promise.all([
-          remoteStorage.getUrl(videoKey),
-          remoteStorage.getUrl(audioKey)
-        ]);
-
         isRemote = true;
         log.info(`Model files uploaded to remote storage: ${videoKey}, ${audioKey}`);
 
@@ -250,8 +244,8 @@ function countModel(name = '') {
 }
 
 export function init() {
-  ipcMain.handle(MODEL_NAME + '/addModel', (event, ...args) => {
-    return addModel(...args)
+  ipcMain.handle(MODEL_NAME + '/addModel', async (event, ...args) => {
+    return await addModel(...args)
   })
   ipcMain.handle(MODEL_NAME + '/page', (event, ...args) => {
     return page(...args)
