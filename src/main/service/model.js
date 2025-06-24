@@ -6,7 +6,7 @@ import dayjs from 'dayjs'
 import { isEmpty } from 'lodash'
 import { insert, selectPage, count, selectByID, remove as deleteModel } from '../dao/f2f-model.js'
 import { train as trainVoice } from './voice.js'
-import { assetPath, dataRoot, remoteStorageConfig } from '../config/config.js'
+import { assetPath, remoteStorageConfig } from '../config/config.js'
 import { remoteStorage } from '../config/remoteStorage.js'
 import log from '../logger.js'
 import { extractAudio, toH264 } from '../util/ffmpeg.js'
@@ -153,10 +153,10 @@ async function removeModel(modelId) {
       log.debug('Deleting remote model files', { videoKey, audioKey, audio_format, audio_format_deniose });
 
       // 转化为远程相对路径
-      videoKey = path.relative(dataRoot, videoKey);
-      audioKey = path.relative(dataRoot, audioKey);
-      audio_format = path.relative(dataRoot, audio_format);
-      audio_format_deniose = path.relative(dataRoot, audio_format_deniose);
+      videoKey = path.relative(assetPath.dataRoot, videoKey);
+      audioKey = path.relative(assetPath.dataRoot, audioKey);
+      audio_format = path.relative(assetPath.dataRoot, audio_format);
+      audio_format_deniose = path.relative(assetPath.dataRoot, audio_format_deniose);
 
       log.debug('Deleting remote model files', { videoKey, audioKey, audio_format, audio_format_deniose })
       

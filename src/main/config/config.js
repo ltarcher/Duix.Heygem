@@ -32,6 +32,7 @@ const dataRoot = remoteStorageConfig.enabled ? process.cwd(): isWin
   : process.env.HEYGEM_DATA_ROOT || os.homedir()
 
 export const assetPath = {
+  dataRoot: dataRoot, // 数据根目录
   model: path.join(dataRoot, 'heygem_data', 'face2face', 'temp'), // 模特视频
   ttsProduct: path.join(dataRoot, 'heygem_data', 'face2face', 'temp'), // TTS 产物
   ttsRoot: path.join(dataRoot, 'heygem_data', 'voice', 'data'), // TTS服务根目录
