@@ -322,8 +322,15 @@ async function makeVideoByF2F(audioPath, videoPath) {
   const uuid = crypto.randomUUID()
   
   // 在启用远程存储时获取完整URL
-  let audioUrl = path.relative(assetPath.dataRoot, audioPath)
-  let videoUrl = path.relative(assetPath.dataRoot, videoPath)
+  let audioUrl = audioPath
+  let videoUrl = videoPath
+
+  if (remoteStorageConfig.enabled) {
+    audioUrl = path.relative(assetPath.dataRoot, audioPath)
+    // 上传音频
+    await remoteStorage.upload(audioUrl, audioPath)
+    videoUrl = path.relative(assetPath.dataRoot, videoPath)
+  }
 
   const param = {
     audio_url: audioUrl,
