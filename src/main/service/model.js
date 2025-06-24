@@ -63,8 +63,8 @@ async function addModel(modelName, videoPath) {
         let audioKey = `${assetPath.ttsTrain}/${remotePrefix}${modelFileName.replace(extname, '.wav')}`;
 
         // 取相对路径
-        videoKey = videoKey.relative(assetPath.dataRoot, videoKey);
-        audioKey = audioKey.relative(assetPath.dataRoot, audioKey);
+        videoKey = path.relative(assetPath.dataRoot, videoKey);
+        audioKey = path.relative(assetPath.dataRoot, audioKey);
 
         log.debug('Uploading model files to remote storage', {
           videoKey,
