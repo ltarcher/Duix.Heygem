@@ -123,16 +123,24 @@ app.get('/files', (req, res) => {
 
 // 文件删除接口（支持相对路径）
 app.delete('/delete', (req, res) => {
-  const filename = req.query.filename;
-  const relativePath = req.query.path ? sanitizePath(req.query.path) : '';
-  const filePath = path.join(storagePath, relativePath, filename);
-
+  // 同时支持从body和query中获取参数
+  const filename = req.body.filename || req.query.filename;
+  const relativePath = (req.body.path || req.query.path) ? 
+      sanitizePath(req.body.path || req.query.path) : '';
+  
   logger.info(`API: /delete - Parameters: filename=${filename || 'undefined'}, path=${relativePath}`);
+  logger.debug('API: /delete - Request details', {
+      query: req.query,
+      body: req.body,
+      headers: req.headers
+  });
 
   if (!filename) {
     logger.error('API: /delete - Error: Filename is required');
     return res.status(400).send('Filename is required');
   }
+
+  const filePath = path.join(storagePath, relativePath, filename);
 
   if (fs.existsSync(filePath)) {
     try {
@@ -151,16 +159,24 @@ app.delete('/delete', (req, res) => {
 
 // 创建目录接口（支持相对路径）
 app.post('/mkdir', (req, res) => {
-  const dirName = req.query.dirname;
-  const relativePath = req.query.path ? sanitizePath(req.query.path) : '';
-  const targetDir = path.join(storagePath, relativePath, dirName);
-
+  // 同时支持从body和query中获取参数
+  const dirName = req.body.dirname || req.query.dirname;
+  const relativePath = (req.body.path || req.query.path) ? 
+      sanitizePath(req.body.path || req.query.path) : '';
+  
   logger.info(`API: /mkdir - Parameters: dirname=${dirName || 'undefined'}, path=${relativePath}`);
+  logger.debug('API: /mkdir - Request details', {
+      query: req.query,
+      body: req.body,
+      headers: req.headers
+  });
 
   if (!dirName) {
     logger.error('API: /mkdir - Error: Directory name is required');
     return res.status(400).send('Directory name is required');
   }
+
+  const targetDir = path.join(storagePath, relativePath, dirName);
 
   if (fs.existsSync(targetDir)) {
     logger.error(`API: /mkdir - Error: Directory "${dirName}" already exists in "${relativePath}"`);
