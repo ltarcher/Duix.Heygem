@@ -142,16 +142,6 @@ function page({ page, pageSize, name = '' }) {
   return {
     total,
     list: selectPage({ page, pageSize, name }).map((model) => {
-      // 如果是远程存储的模型，直接返回原始路径
-      if (model.isRemote) {
-        return {
-          ...model,
-          video_path: model.video_path,
-          audio_path: model.audio_path
-        }
-      }
-      
-      // 本地存储的模型，拼接完整路径
       return {
         ...model,
         video_path: path.join(assetPath.model, model.video_path),
@@ -166,16 +156,6 @@ function findModel(modelId) {
   const model = selectByID(modelId)
   if (!model) return null
   
-  // 如果是远程存储的模型，直接返回原始路径
-  if (model.isRemote) {
-    return {
-      ...model,
-      video_path: model.video_path,
-      audio_path: model.audio_path
-    }
-  }
-  
-  // 本地存储的模型，拼接完整路径
   return {
     ...model,
     video_path: path.join(assetPath.model, model.video_path),
@@ -193,10 +173,10 @@ async function removeModel(modelId) {
   log.debug('~ removeModel ~ modelId:', modelId)
 
   try {
-    if (model.isRemote) {
+    if (remoteStorageConfig.enabled) {
       // 删除远程存储的文件
-      const videoKey = `${path.basename(model.video_path)}`;
-      const audioKey = `${path.basename(model.audio_path)}`;
+      const videoKey = `${assetPath.model}/${path.basename(model.video_path)}`;
+      const audioKey = `${assetPath.ttsRoot}/${path.basename(model.audio_path)}`;
       
       log.debug('Deleting remote model files', { videoKey, audioKey });
       
