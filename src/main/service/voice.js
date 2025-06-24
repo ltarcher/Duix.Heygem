@@ -17,12 +17,12 @@ export function getAllTimbre() {
   return selectAll()
 }
 
-export async function train(path, lang = 'zh') {
-  let audioPath = path;
+export async function train(filepath, lang = 'zh') {
+  let audioPath = filepath;
   let isTempFile = false;
   
   // 如果是远程URL，先下载到临时目录
-  if (path.startsWith('http') || path.startsWith('https')) {
+  if (filepath.startsWith('http') || filepath.startsWith('https')) {
     // 创建专用临时目录
     const tempDir = path.join(os.tmpdir(), 'voice-processing');
     if (!fs.existsSync(tempDir)) {
@@ -30,10 +30,10 @@ export async function train(path, lang = 'zh') {
     }
     
     try {
-      const fileName = path.split('/').pop();
+      const fileName = filepath.split('/').pop();
       const tmpPath = path.join(tempDir, fileName);
       log.debug('Downloading remote audio file', { 
-        sourceUrl: path,
+        sourceUrl: filepath,
         tempPath: tmpPath 
       });
       
@@ -44,7 +44,7 @@ export async function train(path, lang = 'zh') {
       
       while (retryCount < maxRetries && !downloadSuccess) {
         try {
-          await remoteStorage.downloadFile(path, tmpPath);
+          await remoteStorage.downloadFile(filepath, tmpPath);
           downloadSuccess = true;
           log.debug('Remote audio file downloaded successfully', {
             path: tmpPath,
@@ -85,7 +85,7 @@ export async function train(path, lang = 'zh') {
     return false
   } else {
     const { asr_format_audio_url, reference_audio_text } = res
-    return insert({ origin_audio_path: path, lang, asr_format_audio_url, reference_audio_text })
+    return insert({ origin_audio_path: filepath, lang, asr_format_audio_url, reference_audio_text })
   }
 }
 
