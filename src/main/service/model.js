@@ -45,8 +45,8 @@ async function addModel(modelName, videoPath) {
       try {
         // 统一远程路径前缀
         const remotePrefix = ``;
-        const videoKey = `${remotePrefix}${modelFileName}`;
-        const audioKey = `${remotePrefix}${modelFileName.replace(extname, '.wav')}`;
+        const videoKey = `${assetPath.model}/${remotePrefix}${modelFileName}`;
+        const audioKey = `${assetPath.ttsRoot}/${remotePrefix}${modelFileName.replace(extname, '.wav')}`;
 
         log.debug('Uploading model files to remote storage', {
           videoKey,
