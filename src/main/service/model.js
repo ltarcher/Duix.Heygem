@@ -93,7 +93,7 @@ async function addModel(modelName, videoPath) {
     // 远程调用API进行
     voiceId = await trainVoice(relativeAudioPath, 'zh');
 
-    // 7. 保存到数据库
+    // 7. 保存到数据库，都是相对路径
     const videoPathToSave = path.relative(assetPath.model, 
       path.join(assetPath.model, modelFileName));
     const audioPathToSave = path.relative(assetPath.ttsRoot, 

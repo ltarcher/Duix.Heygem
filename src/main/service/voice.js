@@ -39,8 +39,11 @@ export async function train(filepath, lang = 'zh') {
     if (remoteStorageConfig.enabled) {
       // 如果是远程存储，那么把训练后的音频下载到本地存储
       try {
-        const format_audio = path.join(assetPath.ttsTrain, `format_${path.basename(audioPath)}`)
-        const format_denoise = path.join(assetPath.ttsTrain, `format_denoise_${path.basename(audioPath)}`)
+        let format_audio = path.join(assetPath.ttsTrain, `format_${path.basename(audioPath)}`)
+        let format_denoise = path.join(assetPath.ttsTrain, `format_denoise_${path.basename(audioPath)}`)
+        format_audio = path.relative(assetPath.dataRoot, format_audio)
+        format_denoise = path.relative(assetPath.dataRoot, format_denoise)
+
         await remoteStorage.download(format_audio, format_audio);
         await remoteStorage.download(format_denoise, format_denoise);
 
