@@ -93,13 +93,24 @@ if (remoteStorageConfig.type === 'api') {
         endpoint: remoteStorageConfig.apiEndpoint
       });
 
+      //key如果是以http、https开头，需要从url中解析filename和path参数
+      if (key.startsWith('http://') || key.startsWith('https://')) {
+        const url = new URL(key);
+        downfile = url.searchParams.get('filename');
+        downpath = url.searchParams.get('path');
+
+      } else {
+        downfile = path.basename(key);
+        downpath = path.dirname(key);
+      }
+
       try {
         const response = await axios.get(
           `${remoteStorageConfig.apiEndpoint}/download`,
           {
             params: {
-              filename: path.basename(key),
-              path: path.dirname(key)
+              filename: downfile,
+              path: downpath
             },
             responseType: 'stream'
           }
