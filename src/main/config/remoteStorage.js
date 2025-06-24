@@ -4,7 +4,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } fro
 import { remoteStorageConfig } from './config.js'
 import path from 'path'
 import fs from 'fs'
-import log from '../utils/log.js'
+import log from '../logger.js'
 // 根据配置类型选择存储方式
 let storageAdapter
 
