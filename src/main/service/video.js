@@ -201,12 +201,7 @@ export async function synthesisVideo(videoId) {
 
     // 调用视频生成接口生成视频
     let result, param
-    if (process.env.NODE_ENV === 'development') {
-      // 写死调试
-      ({ result, param } = await makeVideoByF2F('test.wav', 'test.mp4'))
-    } else {
-      ({ result, param } = await makeVideoByF2F(audioPath, model.video_path))
-    }
+    ({ result, param } = await makeVideoByF2F(audioPath, model.video_path))
 
     log.debug('~ makeVideo ~ result, param:', result, param)
 
