@@ -326,7 +326,7 @@ async function makeVideoByF2F(audioPath, videoPath) {
   let videoUrl = videoPath
 
   if (remoteStorageConfig.enabled) {
-    audioUrl = path.relative(assetPath.dataRoot, audioPath)
+    audioUrl = path.relative(assetPath.dataRoot, path.join(assetPath.ttsProduct, audioPath))
     // 上传音频
     await remoteStorage.upload(audioUrl, audioPath)
     videoUrl = path.relative(assetPath.dataRoot, videoPath)
