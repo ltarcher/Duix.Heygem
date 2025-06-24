@@ -9,7 +9,7 @@ import { train as trainVoice } from './voice.js'
 import { assetPath, remoteStorageConfig } from '../config/config.js'
 import { remoteStorage } from '../config/remoteStorage.js'
 import log from '../logger.js'
-import { extractAudio } from '../util/ffmpeg.js'
+import { extractAudio, toH264 } from '../util/ffmpeg.js'
 const MODEL_NAME = 'model'
 
 /**
@@ -32,11 +32,14 @@ async function addModel(modelName, videoPath) {
     const tempVideoPath = path.join(tempDir, modelFileName);
     const tempAudioPath = path.join(tempDir, modelFileName.replace(extname, '.wav'));
 
-    // 3. 复制视频到临时目录并提取音频
-    fs.copyFileSync(videoPath, tempVideoPath);
+    // 3. 转换视频到临时目录并提取音频（本地最后要有Nvidia显卡）
+    //fs.copyFileSync(videoPath, tempVideoPath);
+    await toH264(videoPath, tempVideoPath)
+
+    // 提取音频
     await extractAudio(tempVideoPath, tempAudioPath);
 
-    // 4. 远程存储处理
+    // 4. 远程存储处理，把模特视频和音频都上传
     let remoteVideoPath = '';
     let remoteAudioPath = '';
     let isRemote = false;
@@ -46,7 +49,7 @@ async function addModel(modelName, videoPath) {
         // 统一远程路径前缀
         const remotePrefix = ``;
         const videoKey = `${assetPath.model}/${remotePrefix}${modelFileName}`;
-        const audioKey = `${assetPath.ttsRoot}/${remotePrefix}${modelFileName.replace(extname, '.wav')}`;
+        const audioKey = `${assetPath.ttsTrain}/${remotePrefix}${modelFileName.replace(extname, '.wav')}`;
 
         log.debug('Uploading model files to remote storage', {
           videoKey,
@@ -100,16 +103,20 @@ async function addModel(modelName, videoPath) {
     }
 
     // 6. 训练语音模型
-    const relativeAudioPath = isRemote ? remoteAudioPath : path.relative(assetPath.ttsRoot, 
+    const relativeAudioPath = path.relative(assetPath.ttsRoot, 
       path.join(assetPath.ttsTrain, modelFileName.replace(extname, '.wav')));
+
+    // 7. 上传语音模型
+
     
     let voiceId;
+    // 远程调用API进行
     voiceId = await trainVoice(relativeAudioPath, 'zh');
 
     // 7. 保存到数据库
-    const videoPathToSave = isRemote ? remoteVideoPath : path.relative(assetPath.model, 
+    const videoPathToSave = path.relative(assetPath.model, 
       path.join(assetPath.model, modelFileName));
-    const audioPathToSave = isRemote ? remoteAudioPath : path.relative(assetPath.ttsRoot, 
+    const audioPathToSave = path.relative(assetPath.ttsRoot, 
       path.join(assetPath.ttsTrain, modelFileName.replace(extname, '.wav')));
 
     const id = insert({ 

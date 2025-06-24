@@ -19,60 +19,9 @@ export function getAllTimbre() {
 
 export async function train(filepath, lang = 'zh') {
   let audioPath = filepath;
-  let isTempFile = false;
-  let downfile = '';
-  let downpath = '';
-  
-  // 如果是远程URL，先下载到临时目录
-  if (audioPath.startsWith('http') || audioPath.startsWith('https')) {
-    // 创建专用临时目录
-    const url = new URL(audioPath);
-    downfile = url.searchParams.get('filename');
-    downpath = url.searchParams.get('path');
-    const tempDir = path.join(os.tmpdir(), 'voice-processing');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    
-    try {
-      const tmpPath = path.join(tempDir, downfile);
-      log.debug('Downloading remote audio file', { 
-        sourceUrl: audioPath,
-        tempPath: tmpPath 
-      });
-      
-      // 重试机制
-      const maxRetries = 3;
-      let retryCount = 0;
-      let downloadSuccess = false;
-      
-      while (retryCount < maxRetries && !downloadSuccess) {
-        try {
-          await remoteStorage.download(filepath, tmpPath);
-          downloadSuccess = true;
-          log.debug('Remote audio file downloaded successfully', {
-            path: tmpPath,
-            size: fs.statSync(tmpPath).size
-          });
-        } catch (error) {
-          retryCount++;
-          log.warn(`Download failed (attempt ${retryCount}/${maxRetries})`, error);
-          if (retryCount >= maxRetries) {
-            throw error;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-        }
-      }
-      
-      audioPath = tmpPath;
-      isTempFile = true;
-    } catch (error) {
-      log.error('Failed to download remote audio file after retries:', error);
-      throw new Error('Failed to download remote audio file');
-    }
-  }
 
   audioPath = audioPath.replace(/\\/g, '/'); // 将路径中的\替换为/
+  log.debug('~ train ~ audioPath:', audioPath)
   
   //调用API训练学习模特语音
   const res = await preprocessAndTran({
@@ -81,16 +30,12 @@ export async function train(filepath, lang = 'zh') {
     lang
   });
 
-  // 清理临时文件
-  if (isTempFile && fs.existsSync(audioPath)) {
-    fs.unlinkSync(audioPath);
-  }
   log.debug('~ train ~ res:', res)
   if (res.code !== 0) {
     return false
   } else {
     const { asr_format_audio_url, reference_audio_text } = res
-    return insert({ origin_audio_path: filepath, lang, asr_format_audio_url, reference_audio_text })
+    return insert({ origin_audio_path: audioPath, lang, asr_format_audio_url, reference_audio_text })
   }
 }
 
