@@ -92,6 +92,8 @@ async function addModel(modelName, videoPath) {
       // 复制文件到最终位置
       const finalVideoPath = path.join(assetPath.model, modelFileName);
       const finalAudioPath = path.join(assetPath.ttsTrain, modelFileName.replace(extname, '.wav'));
+
+      log.debug('Copying model files to local storage :', { finalVideoPath, finalAudioPath })
       
       fs.copyFileSync(tempVideoPath, finalVideoPath);
       fs.copyFileSync(tempAudioPath, finalAudioPath);
