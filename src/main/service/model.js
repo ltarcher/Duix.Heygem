@@ -141,13 +141,11 @@ function page({ page, pageSize, name = '' }) {
   const total = count(name)
   return {
     total,
-    list: selectPage({ page, pageSize, name }).map((model) => {
-      return {
-        ...model,
-        video_path: path.join(assetPath.model, model.video_path),
-        audio_path: path.join(assetPath.ttsRoot, model.audio_path)
-      }
-    })
+    list: selectPage({ page, pageSize, name }).map((model) => ({
+      ...model,
+      video_path: path.join(assetPath.model, model.video_path),
+      audio_path: path.join(assetPath.ttsRoot, model.audio_path)
+    }))
   }
 }
 
