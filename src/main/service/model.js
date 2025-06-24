@@ -145,10 +145,10 @@ async function removeModel(modelId) {
   try {
     if (remoteStorageConfig.enabled) {
       // 删除远程存储的文件
-      const videoKey = `${assetPath.model}/${path.basename(model.video_path)}`;
-      const audioKey = `${assetPath.ttsTrain}/${path.basename(model.audio_path)}`;
-      const audio_format = `${assetPath.ttsTrain}/format_${path.basename(model.audio_path)}`
-      const audio_format_deniose = `${assetPath.ttsTrain}/format_deniose_${path.basename(model.audio_path)}`
+      let videoKey = `${assetPath.model}/${path.basename(model.video_path)}`;
+      let audioKey = `${assetPath.ttsTrain}/${path.basename(model.audio_path)}`;
+      let audio_format = `${assetPath.ttsTrain}/format_${path.basename(model.audio_path)}`
+      let audio_format_deniose = `${assetPath.ttsTrain}/format_deniose_${path.basename(model.audio_path)}`
       
       log.debug('Deleting remote model files', { videoKey, audioKey, audio_format, audio_format_deniose });
 
