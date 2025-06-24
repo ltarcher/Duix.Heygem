@@ -22,23 +22,31 @@ if (remoteStorageConfig.type === 'api') {
 
       try {
         const formData = new FormData();
-        formData.append('file', fs.createReadStream(file));
-        formData.append('path', path.dirname(key));
-
-        // 记录formData字段信息
-        const formDataFields = {
-          file: {
-            name: path.basename(file),
-            size: fs.statSync(file).size,
-            type: 'file'
-          },
-          path: path.dirname(key)
-        };
         
-        log.debug('[API Storage] FormData fields', {
+        // 在添加字段前记录日志
+        log.debug('[API Storage] Creating FormData', { key });
+        
+        // 添加文件字段并记录
+        const fileStream = fs.createReadStream(file);
+        formData.append('file', fileStream);
+        log.debug('[API Storage] FormData field added: file', {
+          name: path.basename(file),
+          size: fs.statSync(file).size,
+          type: 'file'
+        });
+        
+        // 添加路径字段并记录
+        const pathValue = path.dirname(key);
+        formData.append('path', pathValue);
+        log.debug('[API Storage] FormData field added: path', { value: pathValue });
+        
+        // 记录完整的formData头信息
+        const headers = formData.getHeaders();
+        log.debug('[API Storage] FormData headers', {
           key,
-          formDataFields,
-          headers: formData.getHeaders()
+          contentType: headers['content-type'],
+          contentLength: headers['content-length'],
+          boundary: formData.getBoundary()
         });
 
         const response = await axios.post(
