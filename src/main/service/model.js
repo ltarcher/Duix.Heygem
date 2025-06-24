@@ -106,9 +106,6 @@ async function addModel(modelName, videoPath) {
     const relativeAudioPath = path.relative(assetPath.ttsRoot, 
       path.join(assetPath.ttsTrain, modelFileName.replace(extname, '.wav')));
 
-    // 7. 上传语音模型
-
-    
     let voiceId;
     // 远程调用API进行
     voiceId = await trainVoice(relativeAudioPath, 'zh');
