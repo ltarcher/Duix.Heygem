@@ -74,6 +74,7 @@ export async function train(filepath, lang = 'zh') {
 
   audioPath = audioPath.replace(/\\/g, '/'); // 将路径中的\替换为/
   
+  //调用API训练学习模特语音
   const res = await preprocessAndTran({
     format: audioPath.split('.').pop(),
     reference_audio: audioPath,
