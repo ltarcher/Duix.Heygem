@@ -59,8 +59,12 @@ async function addModel(modelName, videoPath) {
       try {
         // 统一远程路径前缀
         const remotePrefix = ``;
-        const videoKey = `${assetPath.model}/${remotePrefix}${modelFileName}`;
-        const audioKey = `${assetPath.ttsTrain}/${remotePrefix}${modelFileName.replace(extname, '.wav')}`;
+        let videoKey = `${assetPath.model}/${remotePrefix}${modelFileName}`;
+        let audioKey = `${assetPath.ttsTrain}/${remotePrefix}${modelFileName.replace(extname, '.wav')}`;
+
+        // 取相对路径
+        videoKey = videoKey.relative(assetPath.dataRoot, videoKey);
+        audioKey = audioKey.relative(assetPath.dataRoot, audioKey);
 
         log.debug('Uploading model files to remote storage', {
           videoKey,
