@@ -150,7 +150,15 @@ async function removeModel(modelId) {
       const audio_format = `${assetPath.ttsTrain}/format_${path.basename(model.audio_path)}`
       const audio_format_deniose = `${assetPath.ttsTrain}/format_deniose_${path.basename(model.audio_path)}`
       
-      log.debug('Deleting remote model files', { videoKey, audioKey });
+      log.debug('Deleting remote model files', { videoKey, audioKey, audio_format, audio_format_deniose });
+
+      // 转化为远程相对路径
+      videoKey = path.relative(dataRoot, videoKey);
+      audioKey = path.relative(dataRoot, audioKey);
+      audio_format = path.relative(dataRoot, audio_format);
+      audio_format_deniose = path.relative(dataRoot, audio_format_deniose);
+
+      log.debug('Deleting remote model files', { videoKey, audioKey, audio_format, audio_format_deniose })
       
       // 重试机制
       const maxRetries = 3;
