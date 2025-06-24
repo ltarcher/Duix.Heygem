@@ -4,6 +4,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } fro
 import { remoteStorageConfig } from './config.js'
 import path from 'path'
 import fs from 'fs'
+import log from '../utils/log.js'
 // 根据配置类型选择存储方式
 let storageAdapter
 
@@ -11,57 +12,141 @@ if (remoteStorageConfig.type === 'api') {
   // API存储适配器
   storageAdapter = {
     async upload(key, file) {
-      const formData = new FormData()
-      formData.append('file', fs.createReadStream(file))
-      formData.append('path', path.dirname(key))
+      const startTime = Date.now();
+      log.debug('[API Storage] Starting file upload', {
+        key,
+        file,
+        size: fs.statSync(file).size,
+        endpoint: remoteStorageConfig.apiEndpoint
+      });
 
-      const response = await axios.post(
-        `${remoteStorageConfig.apiEndpoint}/upload`,
-        formData,
-        {
-          headers: formData.getHeaders()
-        }
-      )
+      try {
+        const formData = new FormData();
+        formData.append('file', fs.createReadStream(file));
+        formData.append('path', path.dirname(key));
 
-      return `${remoteStorageConfig.apiEndpoint}/download?filename=${path.basename(key)}&path=${path.dirname(key)}`
+        const response = await axios.post(
+          `${remoteStorageConfig.apiEndpoint}/upload`,
+          formData,
+          {
+            headers: formData.getHeaders()
+          }
+        );
+
+        const url = `${remoteStorageConfig.apiEndpoint}/download?filename=${path.basename(key)}&path=${path.dirname(key)}`;
+        const duration = Date.now() - startTime;
+        
+        log.debug('[API Storage] File upload completed', {
+          key,
+          url,
+          duration: `${duration}ms`
+        });
+
+        return url;
+      } catch (error) {
+        log.error('[API Storage] File upload failed', {
+          key,
+          file,
+          error: error.message,
+          duration: `${Date.now() - startTime}ms`
+        });
+        throw error;
+      }
     },
 
     async download(key, localPath) {
-      const response = await axios.get(
-        `${remoteStorageConfig.apiEndpoint}/download`,
-        {
-          params: {
-            filename: path.basename(key),
-            path: path.dirname(key)
-          },
-          responseType: 'stream'
-        }
-      )
+      const startTime = Date.now();
+      log.debug('[API Storage] Starting file download', {
+        key,
+        localPath,
+        endpoint: remoteStorageConfig.apiEndpoint
+      });
 
-      const dir = path.dirname(localPath)
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true })
+      try {
+        const response = await axios.get(
+          `${remoteStorageConfig.apiEndpoint}/download`,
+          {
+            params: {
+              filename: path.basename(key),
+              path: path.dirname(key)
+            },
+            responseType: 'stream'
+          }
+        );
+
+        const dir = path.dirname(localPath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+          log.debug('[API Storage] Created directory', { dir });
+        }
+        
+        const writer = fs.createWriteStream(localPath);
+        response.data.pipe(writer);
+        
+        return new Promise((resolve, reject) => {
+          writer.on('finish', () => {
+            const duration = Date.now() - startTime;
+            const size = fs.statSync(localPath).size;
+            log.debug('[API Storage] File download completed', {
+              key,
+              localPath,
+              size,
+              duration: `${duration}ms`
+            });
+            resolve();
+          });
+          writer.on('error', (error) => {
+            log.error('[API Storage] File download failed', {
+              key,
+              localPath,
+              error: error.message,
+              duration: `${Date.now() - startTime}ms`
+            });
+            reject(error);
+          });
+        });
+      } catch (error) {
+        log.error('[API Storage] File download failed', {
+          key,
+          localPath,
+          error: error.message,
+          duration: `${Date.now() - startTime}ms`
+        });
+        throw error;
       }
-      
-      const writer = fs.createWriteStream(localPath)
-      response.data.pipe(writer)
-      
-      return new Promise((resolve, reject) => {
-        writer.on('finish', resolve)
-        writer.on('error', reject)
-      })
     },
 
     async delete(key) {
-      await axios.delete(
-        `${remoteStorageConfig.apiEndpoint}/delete`,
-        {
-          data: {
-            filename: path.basename(key),
-            path: path.dirname(key)
+      const startTime = Date.now();
+      log.debug('[API Storage] Starting file deletion', {
+        key,
+        endpoint: remoteStorageConfig.apiEndpoint
+      });
+
+      try {
+        await axios.delete(
+          `${remoteStorageConfig.apiEndpoint}/delete`,
+          {
+            data: {
+              filename: path.basename(key),
+              path: path.dirname(key)
+            }
           }
-        }
-      )
+        );
+
+        const duration = Date.now() - startTime;
+        log.debug('[API Storage] File deletion completed', {
+          key,
+          duration: `${duration}ms`
+        });
+      } catch (error) {
+        log.error('[API Storage] File deletion failed', {
+          key,
+          error: error.message,
+          duration: `${Date.now() - startTime}ms`
+        });
+        throw error;
+      }
     }
   }
 } else {
@@ -78,68 +163,226 @@ if (remoteStorageConfig.type === 'api') {
 
   storageAdapter = {
     async upload(key, file) {
-      let fileContent = file
-      if (typeof file === 'string') {
-        fileContent = fs.readFileSync(file)
-      }
+      const startTime = Date.now();
+      log.debug('[S3 Storage] Starting file upload', {
+        key,
+        file: typeof file === 'string' ? file : 'Buffer',
+        bucket: remoteStorageConfig.bucket,
+        endpoint: remoteStorageConfig.endpoint
+      });
 
-      const params = {
-        Bucket: remoteStorageConfig.bucket,
-        Key: key,
-        Body: fileContent
-      }
+      try {
+        let fileContent = file;
+        let fileSize;
+        if (typeof file === 'string') {
+          fileContent = fs.readFileSync(file);
+          fileSize = fs.statSync(file).size;
+        } else {
+          fileSize = file.length;
+        }
 
-      await s3Client.send(new PutObjectCommand(params))
-      return `${remoteStorageConfig.endpoint}/${remoteStorageConfig.bucket}/${key}`
+        const params = {
+          Bucket: remoteStorageConfig.bucket,
+          Key: key,
+          Body: fileContent
+        };
+
+        await s3Client.send(new PutObjectCommand(params));
+        const url = `${remoteStorageConfig.endpoint}/${remoteStorageConfig.bucket}/${key}`;
+        const duration = Date.now() - startTime;
+
+        log.debug('[S3 Storage] File upload completed', {
+          key,
+          url,
+          size: fileSize,
+          duration: `${duration}ms`
+        });
+
+        return url;
+      } catch (error) {
+        log.error('[S3 Storage] File upload failed', {
+          key,
+          error: error.message,
+          duration: `${Date.now() - startTime}ms`
+        });
+        throw error;
+      }
     },
 
     async download(key, localPath) {
-      const params = {
-        Bucket: remoteStorageConfig.bucket,
-        Key: key
-      }
+      const startTime = Date.now();
+      log.debug('[S3 Storage] Starting file download', {
+        key,
+        localPath,
+        bucket: remoteStorageConfig.bucket,
+        endpoint: remoteStorageConfig.endpoint
+      });
 
-      const { Body } = await s3Client.send(new GetObjectCommand(params))
-      const dir = path.dirname(localPath)
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true })
+      try {
+        const params = {
+          Bucket: remoteStorageConfig.bucket,
+          Key: key
+        };
+
+        const { Body } = await s3Client.send(new GetObjectCommand(params));
+        const dir = path.dirname(localPath);
+        
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+          log.debug('[S3 Storage] Created directory', { dir });
+        }
+
+        const content = await Body.transformToByteArray();
+        fs.writeFileSync(localPath, content);
+
+        const duration = Date.now() - startTime;
+        const size = fs.statSync(localPath).size;
+
+        log.debug('[S3 Storage] File download completed', {
+          key,
+          localPath,
+          size,
+          duration: `${duration}ms`
+        });
+      } catch (error) {
+        log.error('[S3 Storage] File download failed', {
+          key,
+          localPath,
+          error: error.message,
+          duration: `${Date.now() - startTime}ms`
+        });
+        throw error;
       }
-      fs.writeFileSync(localPath, await Body.transformToByteArray())
     },
 
     async delete(key) {
-      const params = {
-        Bucket: remoteStorageConfig.bucket,
-        Key: key
+      const startTime = Date.now();
+      log.debug('[S3 Storage] Starting file deletion', {
+        key,
+        bucket: remoteStorageConfig.bucket,
+        endpoint: remoteStorageConfig.endpoint
+      });
+
+      try {
+        const params = {
+          Bucket: remoteStorageConfig.bucket,
+          Key: key
+        };
+
+        await s3Client.send(new DeleteObjectCommand(params));
+
+        const duration = Date.now() - startTime;
+        log.debug('[S3 Storage] File deletion completed', {
+          key,
+          duration: `${duration}ms`
+        });
+      } catch (error) {
+        log.error('[S3 Storage] File deletion failed', {
+          key,
+          error: error.message,
+          duration: `${Date.now() - startTime}ms`
+        });
+        throw error;
       }
-      await s3Client.send(new DeleteObjectCommand(params))
     }
   }
 }
 
 export class RemoteStorage {
   constructor() {
-    this.bucket = remoteStorageConfig.bucket
+    this.bucket = remoteStorageConfig.bucket;
+    log.debug('[RemoteStorage] Initialized', {
+      type: remoteStorageConfig.type,
+      bucket: this.bucket,
+      endpoint: remoteStorageConfig.type === 'api' ? remoteStorageConfig.apiEndpoint : remoteStorageConfig.endpoint
+    });
   }
 
   async upload(key, file) {
-    return storageAdapter.upload(key, file)
+    log.debug('[RemoteStorage] Upload requested', {
+      type: remoteStorageConfig.type,
+      key,
+      file: typeof file === 'string' ? file : 'Buffer'
+    });
+
+    try {
+      const result = await storageAdapter.upload(key, file);
+      log.debug('[RemoteStorage] Upload completed', {
+        key,
+        result
+      });
+      return result;
+    } catch (error) {
+      log.error('[RemoteStorage] Upload failed', {
+        key,
+        error: error.message
+      });
+      throw error;
+    }
   }
 
   async download(key, localPath) {
-    return storageAdapter.download(key, localPath)
+    log.debug('[RemoteStorage] Download requested', {
+      type: remoteStorageConfig.type,
+      key,
+      localPath
+    });
+
+    try {
+      await storageAdapter.download(key, localPath);
+      log.debug('[RemoteStorage] Download completed', {
+        key,
+        localPath,
+        size: fs.existsSync(localPath) ? fs.statSync(localPath).size : 'unknown'
+      });
+    } catch (error) {
+      log.error('[RemoteStorage] Download failed', {
+        key,
+        localPath,
+        error: error.message
+      });
+      throw error;
+    }
   }
 
   async delete(key) {
-    return storageAdapter.delete(key)
+    log.debug('[RemoteStorage] Delete requested', {
+      type: remoteStorageConfig.type,
+      key
+    });
+
+    try {
+      await storageAdapter.delete(key);
+      log.debug('[RemoteStorage] Delete completed', {
+        key
+      });
+    } catch (error) {
+      log.error('[RemoteStorage] Delete failed', {
+        key,
+        error: error.message
+      });
+      throw error;
+    }
   }
 
   getUrl(key) {
+    log.debug('[RemoteStorage] GetUrl requested', {
+      type: remoteStorageConfig.type,
+      key
+    });
+
+    let url;
     if (remoteStorageConfig.type === 'api') {
-      return `${remoteStorageConfig.apiEndpoint}/download?filename=${path.basename(key)}&path=${path.dirname(key)}`
+      url = `${remoteStorageConfig.apiEndpoint}/download?filename=${path.basename(key)}&path=${path.dirname(key)}`;
     } else {
-      return `${remoteStorageConfig.endpoint}/${remoteStorageConfig.bucket}/${key}`
+      url = `${remoteStorageConfig.endpoint}/${remoteStorageConfig.bucket}/${key}`;
     }
+
+    log.debug('[RemoteStorage] GetUrl completed', {
+      key,
+      url
+    });
+    return url;
   }
 }
 
