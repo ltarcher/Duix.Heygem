@@ -25,17 +25,34 @@ function sanitizePath(relativePath) {
 app.post('/upload', (req, res) => {
   logger.info(`API: /upload - Start uploading file`);
 
+  // 详细记录请求信息
+  logger.debug('API: /upload - Request details', {
+    query: req.query,
+    body: req.body,
+    files: req.files ? Object.keys(req.files) : null,
+    headers: req.headers
+  });
+
   if (!req.files || Object.keys(req.files).length === 0) {
     logger.error('API: /upload - No files were uploaded');
     return res.status(400).send('No files were uploaded.');
   }
 
   const file = req.files.file;
-  const relativePath = req.query.path ? sanitizePath(req.query.path) : '';
+  // 同时支持从body和query中获取path
+  const relativePath = req.body.path || req.query.path ? sanitizePath(req.body.path || req.query.path) : '';
   const targetDir = path.join(storagePath, relativePath);
   const filePath = path.join(targetDir, file.name);
 
   logger.info(`API: /upload - Parameters: filename=${file.name}, path=${relativePath}`);
+  logger.debug('API: /upload - File details', {
+    name: file.name,
+    size: file.size,
+    mimetype: file.mimetype,
+    path: relativePath,
+    targetDir,
+    filePath
+  });
 
   // 确保目标目录存在
   if (!fs.existsSync(targetDir)) {

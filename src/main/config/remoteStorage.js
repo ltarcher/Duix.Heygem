@@ -49,8 +49,15 @@ if (remoteStorageConfig.type === 'api') {
           boundary: formData.getBoundary()
         });
 
+        // 记录完整的请求URL和参数
+        const uploadUrl = `${remoteStorageConfig.apiEndpoint}/upload?path=${encodeURIComponent(pathValue)}`;
+        log.debug('[API Storage] Request URL', {
+          url: uploadUrl,
+          method: 'POST'
+        });
+
         const response = await axios.post(
-          `${remoteStorageConfig.apiEndpoint}/upload`,
+          uploadUrl,
           formData,
           {
             headers: formData.getHeaders()
