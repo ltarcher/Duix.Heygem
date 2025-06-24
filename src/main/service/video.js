@@ -241,81 +241,8 @@ export async function loopPending() {
         duration = 88
         log.debug('Using mock duration in development mode')
       }else{
-        let resultPath
-        if (remoteStorageConfig.enabled) {
-          // 创建专用临时目录
-          const tempDir = path.join(os.tmpdir(), 'video-processing')
-          if (!fs.existsSync(tempDir)) {
-            fs.mkdirSync(tempDir, { recursive: true })
-          }
-        
-          const tempFilePath = path.join(tempDir, `${Date.now()}_${path.basename(statusRes.data.result)}`)
-          
-          // 重试下载机制
-          const maxRetries = 3
-          let retryCount = 0
-          let downloadSuccess = false
-          
-          while (retryCount < maxRetries && !downloadSuccess) {
-            try {
-              log.debug('Downloading remote video (attempt %d/%d)', 
-                retryCount + 1, maxRetries, {
-                  remotePath: statusRes.data.result,
-                  localPath: tempFilePath
-                })
-              
-              await remoteStorage.download(statusRes.data.result, tempFilePath)
-              downloadSuccess = true
-              log.info('Remote video downloaded successfully', {
-                path: tempFilePath,
-                size: fs.existsSync(tempFilePath) ? `${(fs.statSync(tempFilePath).size / 1024 / 1024).toFixed(2)}MB` : 'unknown'
-              })
-            } catch (error) {
-              retryCount++
-              log.warn('Video download failed (attempt %d/%d): %s', 
-                retryCount, maxRetries, error.message)
-              
-              if (retryCount >= maxRetries) {
-                log.error('Failed to download video after retries', error)
-                throw error
-              }
-              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
-            }
-          }
-          
-          resultPath = tempFilePath
-        } else {
-          resultPath = path.join(assetPath.model, statusRes.data.result)
-          log.debug('Using local video file', {path: resultPath})
-        }
-
-        // 获取视频时长
-        log.debug('Getting video duration', {resultPath})
+        const resultPath = path.join(assetPath.model, statusRes.data.result)
         duration = await getVideoDuration(resultPath)
-      
-        if (remoteStorageConfig.enabled) {
-          // 上传处理后的视频
-          const videoKey = `video/${Date.now()}_${path.basename(statusRes.data.result)}`
-          log.info('Uploading processed video to remote storage', {
-            localPath: resultPath,
-            remoteKey: videoKey
-          })
-          await remoteStorage.upload(videoKey, resultPath)
-        
-          // 清理临时文件
-          try {
-            if (fs.existsSync(resultPath)) {
-              fs.unlinkSync(resultPath)
-              log.debug('Temporary video file removed', {path: resultPath})
-            }
-          } catch (err) {
-            log.error('Failed to remove temporary video file', {
-              path: resultPath,
-              error: err.message
-            })
-          }
-          statusRes.data.result = videoKey
-        }
       }
 
       update({
@@ -358,60 +285,31 @@ function synthesisNext() {
   }
 }
 
-async function removeVideo(videoId) {
+function removeVideo(videoId) {
   // 查询视频
   const video = selectVideoByID(videoId)
   log.debug('~ removeVideo ~ videoId:', videoId)
 
   // 删除视频
-  // 删除视频文件（本地或远程）
-  if (!isEmpty(video.file_path)) {
-    if (remoteStorageConfig.enabled) {
-      await remoteStorage.delete(video.file_path)
-    } else {
-      const videoPath = path.join(assetPath.model, video.file_path)
-      if (fs.existsSync(videoPath)) {
-        fs.unlinkSync(videoPath)
-      }
-    }
+  const videoPath = path.join(assetPath.model, video.file_path ||'')
+  if (!isEmpty(video.file_path) && fs.existsSync(videoPath)) {
+    fs.unlinkSync(videoPath)
   }
 
-  // 删除音频文件（本地或远程）
-  if (!isEmpty(video.audio_path)) {
-    if (remoteStorageConfig.enabled) {
-      await remoteStorage.delete(video.audio_path)
-    } else {
-      const audioPath = path.join(assetPath.model, video.audio_path)
-      if (fs.existsSync(audioPath)) {
-        fs.unlinkSync(audioPath)
-      }
-    }
+  // 删除音频
+  const audioPath = path.join(assetPath.model, video.audio_path ||'')
+  if (!isEmpty(video.audio_path) && fs.existsSync(audioPath)) {
+    fs.unlinkSync(audioPath)
   }
 
   // 删除视频表
   return deleteVideo(videoId)
 }
 
-async function exportVideo(videoId, outputPath) {
+function exportVideo(videoId, outputPath) {
   const video = selectVideoByID(videoId)
-  
-  if (!video.file_path) {
-    throw new Error('Video file not found')
-  }
-
-  if (remoteStorageConfig.enabled) {
-    // 远程模式下直接下载到目标路径
-    await remoteStorage.download(video.file_path, outputPath)
-  } else {
-    // 本地模式下从assetPath复制
-    const sourcePath = path.join(assetPath.model, video.file_path)
-    if (!fs.existsSync(sourcePath)) {
-      throw new Error('Local video file not found')
-    }
-    fs.copyFileSync(sourcePath, outputPath)
-  }
-
-  return outputPath
+  const filePath = path.join(assetPath.model, video.file_path)
+  fs.copyFileSync(filePath, outputPath)
 }
 
 /**
