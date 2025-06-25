@@ -120,6 +120,8 @@ import { useI18n } from 'vue-i18n'
 const { locale,t } = useI18n()
 import { localUrl } from '@renderer/utils'
 
+const emit = defineEmits(['submitOK'])
+
 import merge from 'lodash/merge'
 const globalEn = merge(enConfig, {
   pagination: {}
@@ -181,6 +183,9 @@ const handleCreateModel = async () => {
   const { isSubmitOK } = await createModel()
   // 提交成功
   if (isSubmitOK) {
+    // 直接调用刷新方法，不再依赖事件
+    modelPageAJax()
+    // 仍然触发事件以保持向后兼容
     emit('submitOK')
   }
 }
