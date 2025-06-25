@@ -35,9 +35,7 @@ function page({ page, pageSize, name = '' }) {
     video = {
       ...video,
       file_path: video.file_path 
-        ? (remoteStorageConfig.enabled 
-           ? video.file_path 
-           : path.join(assetPath.model, video.file_path))
+        ? path.join(assetPath.model, video.file_path)
         : video.file_path
     }
 
