@@ -138,9 +138,13 @@ export async function synthesisVideo(videoId) {
         voiceId: voice.id,
         text: video.text_content
       })
+      let audiofullpath;
+      if (remoteStorageConfig.enabled) {
+        audiofullpath = path.join(assetPath.ttsProduct, audioPath)
+      }
       log.info('Audio generated successfully', {
         audioPath,
-        fileSize: fs.existsSync(audioPath) ? `${(fs.statSync(audioPath).size / 1024).toFixed(2)}KB` : 'unknown'
+        fileSize: fs.existsSync(audiofullpath) ? `${(fs.statSync(audiofullpath).size / 1024).toFixed(2)}KB` : 'unknown'
       })
     }
 
@@ -328,12 +332,12 @@ async function makeVideoByF2F(audioPath, videoPath) {
   if (remoteStorageConfig.enabled) {
     audioUrl = path.relative(assetPath.dataRoot, path.join(assetPath.ttsProduct, audioPath))
     // 上传音频
-    await remoteStorage.upload(audioUrl, audioPath)
+    await remoteStorage.upload(audioUrl, path.join(assetPath.ttsProduct, audioPath))
     videoUrl = path.relative(assetPath.dataRoot, videoPath)
   }
 
   const param = {
-    audio_url: audioUrl,
+    audio_url: audioPath,
     video_url: videoUrl,
     code: uuid,
     chaofen: 0,
