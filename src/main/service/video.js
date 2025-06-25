@@ -238,6 +238,12 @@ export async function loopPending() {
         videoId: video.id,
         resultPath: statusRes.data.result
       })
+
+      // 如果是远程存储，下载到本地
+      if (remoteStorageConfig.enabled) {
+        const resultPath = path.join(assetPath.model, statusRes.data.result)
+        await remoteStorage.download(path.join(path.relative(assetPath.dataRoot, assetPath.model), statusRes.data.result), resultPath)
+      }
       
       // ffmpeg 获取视频时长
       let duration
